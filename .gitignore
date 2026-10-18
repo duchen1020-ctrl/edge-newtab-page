@@ -1,0 +1,11 @@
+# WorkBuddy 项目内部数据（含个人记忆/配置，勿提交）
+.workbuddy/
+
+# 本地代理测试等临时日志
+proxy.log
+*.log
+
+# 操作系统 / 编辑器
+.DS_Store
+Thumbs.db
+*.swp

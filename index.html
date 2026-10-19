@@ -495,6 +495,38 @@
     text-shadow: 0 1px 6px rgba(0,0,0,0.50), 0 3px 14px rgba(0,0,0,0.42);
   }
 
+  /* ===== 每日一言 ===== */
+  #quote {
+    margin-top: 20px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    max-width: min(86vw, 720px);
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", system-ui, sans-serif;
+    font-size: clamp(13px, 2.1vw, 18px);
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    line-height: 1.6;
+    color: #eaf2ff;
+    text-shadow: 0 1px 6px rgba(0,0,0,.5), 0 3px 14px rgba(0,0,0,.42);
+  }
+  #quote .q-text {
+    background: linear-gradient(180deg, #ffffff 0%, #cfe6ff 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+  }
+  #quote .q-author { font-size: .82em; opacity: .65; letter-spacing: 1px; white-space: nowrap; }
+  #quote .q-author::before { content: "— "; }
+  #quote .q-refresh {
+    flex: none;
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.22);
+    background: rgba(255,255,255,.10);
+    color: #eaf2ff; cursor: pointer; font-size: 13px; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    opacity: .5; transition: transform .35s ease, opacity .2s ease, background .2s ease;
+  }
+  #quote .q-refresh:hover { opacity: 1; background: rgba(255,255,255,.22); transform: rotate(180deg); }
+
   /* ===== 整页进场动画 ===== */
   /* backwards：延迟期间隐藏，动画结束后回到基础态，不干扰 focus-within / hover 的 transform */
   @keyframes fadeUp {
@@ -505,6 +537,7 @@
   #clock.enter    { animation: fadeUp .9s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .15s; }
   #date.enter     { animation: fadeUp .8s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .28s; }
   .search-wrap.enter { animation: fadeUp .9s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .42s; }
+  #quote.enter { animation: fadeUp .9s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .36s; }
   .link.enter {
     animation: fadeUp .6s cubic-bezier(.2,.8,.2,1) backwards;
     animation-delay: calc(.5s + var(--i, 0) * 0.06s);
@@ -552,7 +585,7 @@
 
   @media (prefers-reduced-motion: reduce) {
     #ambient .blob { animation: none; }
-    #greeting.enter, #clock.enter, #date.enter, .search-wrap.enter, .link.enter { animation: none; }
+    #greeting.enter, #clock.enter, #date.enter, #quote.enter, .search-wrap.enter, .link.enter { animation: none; }
   }
 </style>
 </head>
@@ -569,6 +602,10 @@
     <div id="greeting" class="enter"></div>
     <div id="clock" class="enter"><span id="ch">00</span><span class="colon">:</span><span id="cm">00</span></div>
     <div id="date" class="enter"></div>
+    <div id="quote" class="enter">
+      <span class="q-text"></span><span class="q-author"></span>
+      <button class="q-refresh" id="quote-refresh" title="换一句" aria-label="换一句">↻</button>
+    </div>
 
     <div class="search-wrap enter">
       <div class="engine-box">
@@ -1033,6 +1070,71 @@
     document.getElementById("greeting").textContent = getGreeting(now.getHours());
   }
   tick(); setInterval(tick, 1000);
+
+  // ===== 每日一言 =====
+  const QUOTES = [
+    { t: "岁月不居，时节如流。", a: "孔融" },
+    { t: "海日生残夜，江春入旧年。", a: "王湾" },
+    { t: "长风破浪会有时，直挂云帆济沧海。", a: "李白" },
+    { t: "行到水穷处，坐看云起时。", a: "王维" },
+    { t: "草木蔓发，春山可望。", a: "王维" },
+    { t: "愿你出走半生，归来仍是少年。", a: "" },
+    { t: "生活不止眼前的苟且，还有诗和远方。", a: "高晓松" },
+    { t: "星光不问赶路人，时光不负有心人。", a: "" },
+    { t: "心之所向，素履以往。", a: "《诗经》" },
+    { t: "不乱于心，不困于情。", a: "丰子恺" },
+    { t: "且将新火试新茶，诗酒趁年华。", a: "苏轼" },
+    { t: "莫等闲，白了少年头，空悲切。", a: "岳飞" },
+    { t: "落霞与孤鹜齐飞，秋水共长天一色。", a: "王勃" },
+    { t: "采得百花成蜜后，为谁辛苦为谁甜。", a: "罗隐" },
+    { t: "天下大事，必作于细。", a: "老子" },
+    { t: "千里之行，始于足下。", a: "老子" },
+    { t: "及时当勉励，岁月不待人。", a: "陶渊明" },
+    { t: "山重水复疑无路，柳暗花明又一村。", a: "陆游" },
+    { t: "会当凌绝顶，一览众山小。", a: "杜甫" },
+    { t: "不积跬步，无以至千里。", a: "荀子" },
+    { t: "纸上得来终觉浅，绝知此事要躬行。", a: "陆游" },
+    { t: "云想衣裳花想容，春风拂槛露华浓。", a: "李白" },
+    { t: "绿蚁新醅酒，红泥小火炉。", a: "白居易" },
+    { t: "人间有味是清欢。", a: "苏轼" },
+    { t: "此心安处是吾乡。", a: "苏轼" },
+    { t: "落红不是无情物，化作春泥更护花。", a: "龚自珍" },
+    { t: "路漫漫其修远兮，吾将上下而求索。", a: "屈原" },
+    { t: "小荷才露尖尖角，早有蜻蜓立上头。", a: "杨万里" },
+    { t: "问渠那得清如许，为有源头活水来。", a: "朱熹" },
+    { t: "宠辱不惊，看庭前花开花落。", a: "《菜根谭》" },
+    { t: "慢品人间烟火色，闲观万事岁月长。", a: "" },
+    { t: "人生若只如初见，何事秋风悲画扇。", a: "纳兰性德" },
+    { t: "海上生明月，天涯共此时。", a: "张九龄" },
+    { t: "一蓑烟雨任平生。", a: "苏轼" },
+    { t: "半亩方塘一鉴开，天光云影共徘徊。", a: "朱熹" },
+    { t: "山光悦鸟性，潭影空人心。", a: "常建" },
+    { t: "春风十里扬州路，卷上珠帘总不如。", a: "杜牧" }
+  ];
+  const quoteTextEl = document.querySelector("#quote .q-text");
+  const quoteAuthorEl = document.querySelector("#quote .q-author");
+  let quoteIdx = -1;
+  function renderQuote(idx) {
+    const q = QUOTES[idx];
+    if (!q) return;
+    quoteTextEl.textContent = q.t;
+    if (q.a) { quoteAuthorEl.textContent = q.a; quoteAuthorEl.style.display = ""; }
+    else { quoteAuthorEl.textContent = ""; quoteAuthorEl.style.display = "none"; }
+    quoteIdx = idx;
+  }
+  function dailyQuoteIndex() {
+    const day = Math.floor(Date.now() / 86400000);
+    return ((day % QUOTES.length) + QUOTES.length) % QUOTES.length;
+  }
+  function refreshQuote() {
+    if (QUOTES.length <= 1) return;
+    let i = Math.floor(Math.random() * QUOTES.length);
+    while (i === quoteIdx) i = Math.floor(Math.random() * QUOTES.length);
+    renderQuote(i);
+  }
+  renderQuote(dailyQuoteIndex());
+  const quoteRefresh = document.getElementById("quote-refresh");
+  if (quoteRefresh) quoteRefresh.addEventListener("click", refreshQuote);
 
   // ===== 搜索 =====
   const engineBtn = document.getElementById("engine-btn");

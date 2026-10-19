@@ -155,6 +155,8 @@
     padding: 6px;
     min-width: 150px;
     box-shadow: var(--shadow);
+    max-height: 60vh;
+    overflow-y: auto;
     display: none;
   }
   .engine-menu.open { display: block; }
@@ -447,6 +449,7 @@
           <span class="caret">▼</span>
         </button>
         <div class="engine-menu" id="engine-menu"></div>
+        <input type="file" id="engine-import" accept="application/json,.json" hidden />
       </div>
       <input class="search-input" id="search-input" type="text"
         placeholder="输入关键词，回车搜索…" autocomplete="off" />
@@ -886,8 +889,63 @@
       engineMenu.classList.remove("open");
     };
     engineMenu.appendChild(add);
+
+    const exp = document.createElement("button");
+    exp.className = "engine-add";
+    exp.textContent = "⤓ 导出引擎配置";
+    exp.onclick = (e) => { e.stopPropagation(); exportEngines(); };
+    engineMenu.appendChild(exp);
+
+    const imp = document.createElement("button");
+    imp.className = "engine-add";
+    imp.textContent = "⤒ 导入引擎配置";
+    imp.onclick = (e) => { e.stopPropagation(); const fi = document.getElementById("engine-import"); if (fi) fi.click(); };
+    engineMenu.appendChild(imp);
   }
   buildEngineMenu();
+
+  // 搜索引擎配置导入/导出
+  const engineImportInput = document.getElementById("engine-import");
+  if (engineImportInput) engineImportInput.addEventListener("change", (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (f) importEnginesFromFile(f);
+    e.target.value = "";
+  });
+
+  function exportEngines() {
+    const data = { engine: settings.engine, customEngines: settings.customEngines || [] };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "search-engines.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+    showToast("已导出搜索引擎配置");
+  }
+
+  function importEnginesFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (data && Array.isArray(data.customEngines)) {
+          settings.customEngines = data.customEngines;
+          if (data.engine) settings.engine = data.engine;
+          save();
+          buildEngineMenu();
+          engineName.textContent = settings.engine;
+          showToast("已导入搜索引擎配置");
+        } else {
+          showToast("文件格式不正确");
+        }
+      } catch (err) {
+        showToast("导入失败：JSON 解析错误");
+      }
+    };
+    reader.readAsText(file);
+  }
 
   engineBtn.onclick = (e) => { e.stopPropagation(); engineMenu.classList.toggle("open"); };
 

@@ -229,11 +229,25 @@
   }
 
   // ===== 时钟 =====
+  const clockEl = document.getElementById("clock");
+  const chEl = document.getElementById("ch");
+  const cmEl = document.getElementById("cm");
+  let lastMM = "";
   function tick() {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, "0");
     const mm = String(now.getMinutes()).padStart(2, "0");
-    document.getElementById("clock").textContent = `${hh}:${mm}`;
+    if (chEl.textContent !== hh) chEl.textContent = hh;
+    if (cmEl.textContent !== mm) {
+      cmEl.textContent = mm;
+      if (mm !== lastMM) {
+        lastMM = mm;
+        const big = (mm === "00");
+        clockEl.classList.remove("pulse", "pulse-big");
+        void clockEl.offsetWidth;
+        clockEl.classList.add(big ? "pulse-big" : "pulse");
+      }
+    }
     const days = ["日","一","二","三","四","五","六"];
     document.getElementById("date").textContent =
       `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${days[now.getDay()]}`;

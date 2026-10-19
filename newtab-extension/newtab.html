@@ -77,26 +77,55 @@
   #clock {
     font-family: "SF Pro Display", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
     font-size: clamp(56px, 12vw, 130px);
-    font-weight: 200;
-    letter-spacing: 1px;
+    font-weight: 800;
+    letter-spacing: 2px;
     line-height: 1;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
-    background: linear-gradient(180deg, #ffffff 0%, #cfe3ff 100%);
+    filter:
+      drop-shadow(0 2px 3px rgba(0,0,0,0.32))
+      drop-shadow(0 6px 16px rgba(0,0,0,0.40))
+      drop-shadow(0 0 22px rgba(150,200,255,0.55));
+  }
+  #clock span {
+    background: linear-gradient(180deg, #ffffff 0%, #bfe0ff 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: transparent;
-    filter: drop-shadow(0 2px 14px rgba(0,0,0,0.28));
+    -webkit-text-stroke: 1px rgba(150,190,240,0.5);
   }
   #date {
     margin-top: 14px;
     font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", system-ui, sans-serif;
-    font-size: clamp(14px, 2.4vw, 20px);
-    font-weight: 400;
-    letter-spacing: 2px;
-    opacity: 0.8;
-    text-shadow: 0 1px 10px rgba(0,0,0,0.28);
+    font-size: clamp(15px, 2.6vw, 22px);
+    font-weight: 500;
+    letter-spacing: 3px;
+    color: #eaf2ff;
+    text-shadow:
+      0 1px 6px rgba(0,0,0,0.50),
+      0 3px 14px rgba(0,0,0,0.42);
+  }
+  /* 时钟动画：冒号呼吸 + 整点放大 */
+  #clock .colon {
+    display: inline-block;
+    animation: colonBreath 1.6s ease-in-out infinite;
+  }
+  @keyframes colonBreath {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.18; }
+  }
+  #clock.pulse { animation: clockPulse 0.45s ease-out; }
+  #clock.pulse-big { animation: clockPulseBig 0.9s cubic-bezier(.2,.9,.3,1.25); }
+  @keyframes clockPulse {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+  @keyframes clockPulseBig {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.15); }
+    100% { transform: scale(1); }
   }
 
   /* 搜索框 */
@@ -115,7 +144,8 @@
   }
   .search-wrap:focus-within {
     transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.38);
+    border-color: rgba(160,200,255,0.55);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.38), 0 0 0 3px rgba(160,200,255,0.16);
   }
   .engine-btn {
     border: none;
@@ -150,8 +180,10 @@
     font-size: 20px;
     padding: 0 22px 0 12px;
     cursor: pointer;
+    border-radius: 0 999px 999px 0;
+    transition: background 0.18s ease, color 0.18s ease;
   }
-  .search-btn:hover { background: rgba(255,255,255,0.12); }
+  .search-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
 
   /* 引擎下拉 */
   .engine-menu {
@@ -230,11 +262,13 @@
     color: var(--text);
     font-size: 12px;
     box-shadow: var(--shadow);
-    transition: transform 0.18s ease, background 0.18s ease;
+    overflow: hidden;
+    transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     position: relative;
   }
-  .link:hover { transform: translateY(-4px); background: rgba(255,255,255,0.24); }
-  .link .emoji { font-size: 28px; }
+  .link:hover { transform: translateY(-6px) scale(1.04); background: rgba(255,255,255,0.28); border-color: rgba(160,200,255,0.5); box-shadow: 0 14px 34px rgba(0,0,0,0.42); }
+  .link .emoji { font-size: 28px; transition: transform 0.2s ease; }
+  .link:hover .emoji { transform: scale(1.18); }
   .link .del {
     position: absolute;
     top: 4px; right: 6px;
@@ -459,7 +493,7 @@
   <div id="overlay"></div>
 
   <div class="container">
-    <div id="clock">00:00</div>
+    <div id="clock"><span id="ch">00</span><span class="colon">:</span><span id="cm">00</span></div>
     <div id="date"></div>
 
     <div class="search-wrap">

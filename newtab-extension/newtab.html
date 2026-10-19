@@ -75,17 +75,28 @@
 
   /* 时钟 */
   #clock {
+    font-family: "SF Pro Display", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
     font-size: clamp(56px, 12vw, 130px);
     font-weight: 200;
-    letter-spacing: 2px;
-    text-shadow: var(--shadow);
+    letter-spacing: 1px;
     line-height: 1;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    background: linear-gradient(180deg, #ffffff 0%, #cfe3ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    filter: drop-shadow(0 2px 14px rgba(0,0,0,0.28));
   }
   #date {
-    margin-top: 12px;
+    margin-top: 14px;
+    font-family: "PingFang SC", "Microsoft YaHei", "Helvetica Neue", system-ui, sans-serif;
     font-size: clamp(14px, 2.4vw, 20px);
-    opacity: 0.85;
-    text-shadow: var(--shadow);
+    font-weight: 400;
+    letter-spacing: 2px;
+    opacity: 0.8;
+    text-shadow: 0 1px 10px rgba(0,0,0,0.28);
   }
 
   /* 搜索框 */

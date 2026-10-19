@@ -467,13 +467,11 @@
     border-radius: 12px; background: rgba(0,0,0,0.22); scroll-behavior: smooth;
     text-align: center; font-size: 13px;
   }
-  .lyric-line { padding: 4px 6px; opacity: 0.5; transition: all .25s ease; line-height: 1.5; color: var(--text); }
+  .lyric-line { padding: 4px 6px; opacity: 0.55; transition: all .25s ease; line-height: 1.5; color: var(--text); }
   .lyric-line.active {
     opacity: 1; font-weight: 700; transform: scale(1.06);
-    background: linear-gradient(90deg, #9fe9ff, #ff9fe0);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent; color: transparent;
-    filter: drop-shadow(0 0 10px rgba(159,233,255,.55));
+    color: #eaf6ff;
+    text-shadow: 0 0 10px rgba(159,233,255,.85), 0 0 20px rgba(255,159,224,.45);
   }
   .lyric-empty { padding-top: 52px; opacity: 0.5; font-size: 12px; }
   .lyric-input {

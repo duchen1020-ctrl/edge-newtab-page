@@ -825,6 +825,13 @@
     curLyric = -1;
     renderLyric(true);
   }
+  // 网易云与酷狗都拿不到歌词时，给出明确的版权限制说明 + 手动粘贴引导（而不是默默空白）
+  function showLyricUnavailable() {
+    lyricLines = [];
+    if (lyricBox) lyricBox.innerHTML =
+      '<div class="lyric-empty">该歌曲在网易云与酷狗均未提供歌词（版权/登录限制）。<br>' +
+      '如需同步滚动歌词，可在下方「手动粘贴 LRC」文本框中粘贴歌词后点「应用歌词」。</div>';
+  }
   function renderLyric(reset) {
     if (!lyricBox) return;
     if (!lyricLines.length) { lyricBox.innerHTML = '<div class="lyric-empty">暂无歌词</div>'; return; }
@@ -957,9 +964,14 @@
           return;
         }
         loadMusic(resp.url, resp.name || "网易云音乐", "anonymous");
-        setLyric(resp.lyric || "");
-        if (resp.lyric) showToast("已加载：" + (resp.name || "网易云音乐"));
-        else showToast("已加载：" + (resp.name || "网易云音乐") + "（暂无官方歌词，可手动粘贴 LRC）");
+        if (resp.lyric) {
+          setLyric(resp.lyric);
+          showToast("已加载：" + (resp.name || "网易云音乐") +
+            (resp.lyricSource === "kugou" ? "（歌词来自酷狗兜底）" : ""));
+        } else {
+          showLyricUnavailable();
+          showToast("已加载：" + (resp.name || "网易云音乐") + "，但网易云与酷狗均无该歌词，可手动粘贴 LRC");
+        }
       }
     );
   });

@@ -59,6 +59,32 @@ function mergeLyric(lrc, tlrc) {
   }).join("\n");
 }
 
+// 去掉「歌名 - 歌手」中的歌手部分，仅保留标题用于歌词库检索
+function stripArtist(name) {
+  return String(name || "").replace(/\s*-\s*.*$/, "").trim();
+}
+
+// 兜底：从酷狗歌词库按「歌名 + 时长」检索歌词（网易云对版权歌常返回空，酷狗覆盖更广）
+async function getKugouLyric(name, duration) {
+  if (!name) return "";
+  try {
+    const kw = encodeURIComponent(stripArtist(name));
+    const searchUrl = "https://lyrics.kugou.com/search?ver=1&man=yes&client=mobi&keyword=" + kw +
+      (duration ? ("&duration=" + Math.round(duration)) : "");
+    const sj = await httpsGetJSON(searchUrl);
+    const cand = (sj && sj.candidates) || [];
+    if (!cand.length) return "";
+    const c = cand[0];
+    const dj = await httpsGetJSON(
+      "https://lyrics.kugou.com/download?ver=1&client=mobi&id=" + c.id +
+      "&accesskey=" + encodeURIComponent(c.accesskey) + "&fmt=lrc&charset=utf8"
+    );
+    let lrc = (dj && dj.content) || "";
+    if (lrc) { try { lrc = Buffer.from(lrc, "base64").toString("utf8"); } catch (e) {} }
+    return lrc || "";
+  } catch (e) { return ""; }
+}
+
 async function getLyric(id) {
   try {
     const br = brFromQuality("standard");
@@ -77,7 +103,14 @@ async function getLyric(id) {
     try { name = j2.songs[0].name + " - " + j2.songs[0].artists[0].name; } catch (e) {}
     const lrc = (j3.lrc && j3.lrc.lyric) || "";
     const tlrc = (j3.tlyric && j3.tlyric.lyric) || "";
-    return { ok: true, url, name, lyric: mergeLyric(lrc, tlrc) };
+    let lyric = mergeLyric(lrc, tlrc);
+    let source = lyric ? "netease" : "";
+    if (!lyric) {
+      // 网易云未提供歌词（版权/登录限制）→ 兜底到酷狗歌词库
+      const kg = await getKugouLyric(name, item.playTime);
+      if (kg) { lyric = kg; source = "kugou"; }
+    }
+    return { ok: true, url, name, lyric, lyricSource: source };
   } catch (e) {
     return { ok: false, error: String(e && e.message ? e.message : e) };
   }

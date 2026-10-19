@@ -470,7 +470,13 @@
     text-align: center; font-size: 13px;
   }
   .lyric-line { padding: 4px 6px; opacity: 0.5; transition: all .25s ease; line-height: 1.5; color: var(--text); }
-  .lyric-line.active { opacity: 1; font-weight: 600; transform: scale(1.05); text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+  .lyric-line.active {
+    opacity: 1; font-weight: 700; transform: scale(1.06);
+    background: linear-gradient(90deg, #9fe9ff, #ff9fe0);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+    filter: drop-shadow(0 0 10px rgba(159,233,255,.55));
+  }
   .lyric-empty { padding-top: 52px; opacity: 0.5; font-size: 12px; }
   .lyric-input {
     width: 100%; height: 70px; resize: vertical; margin-top: 6px;
@@ -479,6 +485,77 @@
     outline: none; font-family: inherit; line-height: 1.5;
   }
   .lyric-input::placeholder { color: rgba(255,255,255,0.55); }
+
+  /* ===== 问候语 ===== */
+  #greeting {
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: clamp(14px, 2.4vw, 20px);
+    font-weight: 500;
+    letter-spacing: 3px;
+    color: #eaf2ff;
+    margin-bottom: 12px;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.50), 0 3px 14px rgba(0,0,0,0.42);
+  }
+
+  /* ===== 整页进场动画 ===== */
+  /* backwards：延迟期间隐藏，动画结束后回到基础态，不干扰 focus-within / hover 的 transform */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(26px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  #greeting.enter { animation: fadeUp .8s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .05s; }
+  #clock.enter    { animation: fadeUp .9s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .15s; }
+  #date.enter     { animation: fadeUp .8s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .28s; }
+  .search-wrap.enter { animation: fadeUp .9s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .42s; }
+  .link.enter {
+    animation: fadeUp .6s cubic-bezier(.2,.8,.2,1) backwards;
+    animation-delay: calc(.5s + var(--i, 0) * 0.06s);
+  }
+
+  /* ===== 背景氛围光斑 ===== */
+  #ambient { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
+  #ambient .blob {
+    position: absolute; border-radius: 50%;
+    filter: blur(70px); opacity: .55; mix-blend-mode: screen; will-change: transform;
+  }
+  #ambient .b1 {
+    width: 46vw; height: 46vw; left: -8vw; top: -12vw;
+    background: radial-gradient(circle, rgba(120,180,255,.95), transparent 70%);
+    animation: floatA 22s ease-in-out infinite;
+  }
+  #ambient .b2 {
+    width: 40vw; height: 40vw; right: -6vw; top: 16vh;
+    background: radial-gradient(circle, rgba(255,140,210,.90), transparent 70%);
+    animation: floatB 27s ease-in-out infinite;
+  }
+  #ambient .b3 {
+    width: 38vw; height: 38vw; left: 22vw; bottom: -14vw;
+    background: radial-gradient(circle, rgba(140,255,220,.90), transparent 70%);
+    animation: floatC 31s ease-in-out infinite;
+  }
+  @keyframes floatA { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(6vw,5vh) scale(1.12); } }
+  @keyframes floatB { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-6vw,6vh) scale(1.10); } }
+  @keyframes floatC { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(5vw,-5vh) scale(1.08); } }
+
+  /* ===== 快捷链接 favicon ===== */
+  .link .icon { display: flex; align-items: center; justify-content: center; line-height: 1; }
+  .link .favimg {
+    width: 28px; height: 28px; border-radius: 7px; object-fit: cover;
+    box-shadow: 0 1px 4px rgba(0,0,0,.25); transition: transform .2s ease;
+  }
+  .link:hover .favimg { transform: scale(1.18); }
+
+  /* ===== 玻璃质感：细微噪点 ===== */
+  .panel::before, .music-win::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: .05; mix-blend-mode: overlay; pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #ambient .blob { animation: none; }
+    #greeting.enter, #clock.enter, #date.enter, .search-wrap.enter, .link.enter { animation: none; }
+  }
 </style>
 </head>
 <body>
@@ -491,12 +568,18 @@
   </div>
   <div id="wallpaper"></div>
   <div id="overlay"></div>
+  <div id="ambient">
+    <span class="blob b1"></span>
+    <span class="blob b2"></span>
+    <span class="blob b3"></span>
+  </div>
 
   <div class="container">
-    <div id="clock"><span id="ch">00</span><span class="colon">:</span><span id="cm">00</span></div>
-    <div id="date"></div>
+    <div id="greeting" class="enter"></div>
+    <div id="clock" class="enter"><span id="ch">00</span><span class="colon">:</span><span id="cm">00</span></div>
+    <div id="date" class="enter"></div>
 
-    <div class="search-wrap">
+    <div class="search-wrap enter">
       <div class="engine-box">
         <button class="engine-btn" id="engine-btn">
           <span id="engine-name">百度</span>
@@ -523,6 +606,7 @@
     </div>
     <canvas id="viz" class="viz"></canvas>
     <div class="music-info" id="music-name">未选择音乐</div>
+    <div class="lyric-box" id="lyric-box"><div class="lyric-empty">暂无歌词</div></div>
     <div class="music-controls">
       <button class="btn" id="music-play">▶ 播放</button>
       <input type="range" id="music-progress" class="music-progress" min="0" max="100" value="0" />
@@ -629,6 +713,9 @@
       <label>壁纸效果</label>
       <div class="slider-row"><span>暗化</span><input type="range" id="dark-slider" min="0" max="0.8" step="0.05" /></div>
       <div class="slider-row"><span>模糊</span><input type="range" id="blur-slider" min="0" max="20" step="1" /></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.9;cursor:pointer;margin-top:6px">
+        <input type="checkbox" id="ambient-toggle" /> 背景氛围光斑（让壁纸更有生命力）
+      </label>
       <button class="btn" id="video-toggle" style="display:none;margin-top:6px;width:100%">⏸ 暂停动态壁纸</button>
     </section>
 

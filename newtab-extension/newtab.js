@@ -30,6 +30,7 @@
     wallpaperType: "gradient",
     dark: 0.35,
     blur: 0,
+    ambient: true,
     videoPaused: false,
     rotation: { enabled: false, interval: 30, random: false },
     galleryIndex: 0,
@@ -233,6 +234,72 @@
   const chEl = document.getElementById("ch");
   const cmEl = document.getElementById("cm");
   let lastMM = "";
+  // ===== 农历（纯计算，无需联网；覆盖 1900–2099）=====
+  const lunarInfo = [
+    0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
+    0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
+    0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
+    0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
+    0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
+    0x06ca0,0x0b550,0x15355,0x04da0,0x0a5b0,0x14573,0x052b0,0x0a9a8,0x0e950,0x06aa0,
+    0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
+    0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b5a0,0x195a6,
+    0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
+    0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x055c0,0x0ab60,0x096d5,0x092e0,
+    0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
+    0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
+    0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
+    0x05aa0,0x076a3,0x096d0,0x04afb,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
+    0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,
+    0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,
+    0x0a2e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,
+    0x052d0,0x0a9b8,0x0a950,0x0b4a0,0x0b6a6,0x0ad50,0x055a0,0x0aba4,0x0a5b0,0x052b0,
+    0x0b273,0x06930,0x07337,0x06aa0,0x0ad50,0x14b55,0x04b60,0x0a570,0x054e4,0x0d160,
+    0x0e968,0x0d520,0x0daa0,0x16aa6,0x056d0,0x04ae0,0x0a9d4,0x0a2d0,0x0d150,0x0f252,
+    0x0d520
+  ];
+  const lunarMonths = ["正","二","三","四","五","六","七","八","九","十","冬","腊"];
+  const lunarDays = ["初一","初二","初三","初四","初五","初六","初七","初八","初九","初十","十一","十二","十三","十四","十五","十六","十七","十八","十九","二十","廿一","廿二","廿三","廿四","廿五","廿六","廿七","廿八","廿九","三十"];
+  function lYearDays(y) {
+    let sum = 348, info = lunarInfo[y - 1900];
+    for (let m = 1; m <= 12; m++) if (info & (0x10000 >> m)) sum++;
+    return sum + leapDays(y);
+  }
+  function leapDays(y) {
+    if (leapMonth(y) === 0) return 0;
+    return (lunarInfo[y - 1900] & 0x10000) ? 30 : 29;
+  }
+  function leapMonth(y) { return lunarInfo[y - 1900] & 0xf; }
+  function monthDays(y, m) { return (lunarInfo[y - 1900] & (0x10000 >> m)) ? 30 : 29; }
+  function getLunar(date) {
+    const y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate();
+    if (y < 1900 || y > 2099) return "";
+    let offset = Math.round((Date.UTC(y, m - 1, d) - Date.UTC(1900, 0, 31)) / 86400000);
+    let year, temp, leap, isLeap = false, month;
+    for (year = 1900; year < 2100 && offset > 0; year++) { temp = lYearDays(year); offset -= temp; }
+    if (offset < 0) { offset += temp; year--; }
+    leap = leapMonth(year);
+    for (month = 1; month < 13 && offset > 0; month++) {
+      if (leap > 0 && month === leap + 1 && !isLeap) { --month; isLeap = true; temp = leapDays(year); }
+      else { temp = monthDays(year, month); }
+      if (isLeap && month === leap + 1) isLeap = false;
+      offset -= temp;
+    }
+    if (offset === 0 && leap > 0 && month === leap + 1) {
+      if (isLeap) { isLeap = false; } else { isLeap = true; month--; }
+    }
+    if (offset < 0) { offset += temp; month--; }
+    const ld = offset + 1;
+    return (isLeap ? "闰" : "") + lunarMonths[month - 1] + "月" + lunarDays[ld - 1];
+  }
+  function getGreeting(h) {
+    if (h >= 5 && h < 11) return "早上好";
+    if (h >= 11 && h < 13) return "中午好";
+    if (h >= 13 && h < 18) return "下午好";
+    if (h >= 18 && h < 23) return "晚上好";
+    return "夜深了";
+  }
+
   function tick() {
     const now = new Date();
     const hh = String(now.getHours()).padStart(2, "0");
@@ -249,8 +316,10 @@
       }
     }
     const days = ["日","一","二","三","四","五","六"];
+    const lunar = getLunar(now);
     document.getElementById("date").textContent =
-      `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${days[now.getDay()]}`;
+      `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 星期${days[now.getDay()]}` + (lunar ? ` · 农历${lunar}` : "");
+    document.getElementById("greeting").textContent = getGreeting(now.getHours());
   }
   tick(); setInterval(tick, 1000);
 
@@ -401,15 +470,41 @@
     linksEl.innerHTML = "";
     settings.links.forEach((lk, i) => {
       const a = document.createElement("a");
-      a.className = "link";
+      a.className = "link enter";
       a.href = lk.url; a.target = "_blank";
       a.draggable = true;
-      a.innerHTML = `<span class="emoji">${lk.emoji || "🔗"}</span><span>${lk.name}</span>` +
-        `<button class="del" title="删除">×</button>`;
-      a.querySelector(".del").onclick = (e) => {
+      a.style.setProperty("--i", i);
+      const icon = document.createElement("span");
+      icon.className = "icon";
+      const emojiSpan = document.createElement("span");
+      emojiSpan.className = "emoji";
+      emojiSpan.textContent = lk.emoji || "🔗";
+      icon.appendChild(emojiSpan);
+      try {
+        const domain = new URL(lk.url).hostname;
+        if (domain) {
+          const img = document.createElement("img");
+          img.className = "favimg";
+          img.alt = "";
+          img.referrerPolicy = "no-referrer";
+          img.loading = "lazy";
+          img.onload = () => { emojiSpan.style.display = "none"; };
+          img.onerror = () => { img.remove(); };
+          img.src = "https://api.iowen.cn/favicon/" + domain + ".png";
+          icon.appendChild(img);
+        }
+      } catch (e) {}
+      a.appendChild(icon);
+      const nameSpan = document.createElement("span");
+      nameSpan.textContent = lk.name;
+      a.appendChild(nameSpan);
+      const del = document.createElement("button");
+      del.className = "del"; del.title = "删除"; del.textContent = "×";
+      del.onclick = (e) => {
         e.preventDefault(); e.stopPropagation();
         settings.links.splice(i, 1); save(); renderLinks();
       };
+      a.appendChild(del);
       a.addEventListener("dragstart", (e) => {
         dragIndex = i;
         e.dataTransfer.effectAllowed = "move";
@@ -427,7 +522,8 @@
       linksEl.appendChild(a);
     });
     const add = document.createElement("a");
-    add.className = "link add-link";
+    add.className = "link add-link enter";
+    add.style.setProperty("--i", settings.links.length);
     add.innerHTML = `<span class="emoji">＋</span><span>添加</span>`;
     add.onclick = (e) => {
       e.preventDefault();
@@ -611,6 +707,20 @@
     }
     if (videoToggle) videoToggle.textContent = settings.videoPaused ? "▶ 播放动态壁纸" : "⏸ 暂停动态壁纸";
   });
+
+  // ===== 背景氛围光斑开关 =====
+  const ambientToggle = document.getElementById("ambient-toggle");
+  function applyAmbient() {
+    const a = document.getElementById("ambient");
+    if (a) a.style.display = settings.ambient ? "block" : "none";
+  }
+  if (ambientToggle) {
+    ambientToggle.checked = !!settings.ambient;
+    ambientToggle.addEventListener("change", function () {
+      settings.ambient = ambientToggle.checked; save(); applyAmbient();
+    });
+  }
+  applyAmbient();
 
   // ===== 随机壁纸 =====
   document.getElementById("random-btn").addEventListener("click", () => {

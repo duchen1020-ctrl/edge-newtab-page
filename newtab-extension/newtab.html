@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>新建标签页</title>
+<style>
+  :root {
+    --glass-bg: rgba(255, 255, 255, 0.16);
+    --glass-border: rgba(255, 255, 255, 0.28);
+    --text: #fff;
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+    --blur: 0px;
+    --dark: 0.35;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    overflow: hidden;
+    position: relative;
+    background: #1a1a2e;
+  }
+
+  /* 壁纸层：双图层交叉淡入，切换更自然 */
+  #wallpaper {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    background: #14141c;
+  }
+  .wp-layer {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    opacity: 0;
+    transition: opacity 0.8s ease;
+    filter: blur(var(--blur));
+    will-change: opacity;
+  }
+  .wp-layer.show { opacity: 1; }
+  .wp-layer video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  /* 暗化遮罩，保证文字可读性（强度可调） */
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, var(--dark));
+    z-index: 1;
+  }
+
+  .container {
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  /* 时钟 */
+  #clock {
+    font-size: clamp(56px, 12vw, 130px);
+    font-weight: 200;
+    letter-spacing: 2px;
+    text-shadow: var(--shadow);
+    line-height: 1;
+  }
+  #date {
+    margin-top: 12px;
+    font-size: clamp(14px, 2.4vw, 20px);
+    opacity: 0.85;
+    text-shadow: var(--shadow);
+  }
+
+  /* 搜索框 */
+  .search-wrap {
+    margin-top: 48px;
+    width: min(640px, 92vw);
+    display: flex;
+    background: var(--glass-bg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 999px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .search-wrap:focus-within {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.38);
+  }
+  .engine-btn {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-size: 15px;
+    padding: 0 14px 0 22px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    border-right: 1px solid var(--glass-border);
+    user-select: none;
+  }
+  .engine-btn:hover { background: rgba(255,255,255,0.12); }
+  .engine-btn .caret { font-size: 10px; opacity: 0.8; }
+  .search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-size: 17px;
+    padding: 18px 12px;
+    outline: none;
+  }
+  .search-input::placeholder { color: rgba(255,255,255,0.7); }
+  .search-btn {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-size: 20px;
+    padding: 0 22px 0 12px;
+    cursor: pointer;
+  }
+  .search-btn:hover { background: rgba(255,255,255,0.12); }
+
+  /* 引擎下拉 */
+  .engine-menu {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    background: var(--glass-bg);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    padding: 6px;
+    min-width: 150px;
+    box-shadow: var(--shadow);
+    display: none;
+  }
+  .engine-menu.open { display: block; }
+  .engine-menu button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    color: var(--text);
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    text-align: left;
+  }
+  .engine-menu button:hover, .engine-menu button.active { background: rgba(255,255,255,0.18); }
+  .engine-box { position: relative; display: flex; align-items: center; }
+
+  /* 快捷链接 */
+  .links {
+    margin-top: 40px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    justify-content: center;
+    width: min(720px, 94vw);
+  }
+  .link {
+    width: 86px;
+    height: 86px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-decoration: none;
+    color: var(--text);
+    font-size: 12px;
+    box-shadow: var(--shadow);
+    transition: transform 0.18s ease, background 0.18s ease;
+    position: relative;
+  }
+  .link:hover { transform: translateY(-4px); background: rgba(255,255,255,0.24); }
+  .link .emoji { font-size: 28px; }
+  .link .del {
+    position: absolute;
+    top: 4px; right: 6px;
+    opacity: 0;
+    background: rgba(0,0,0,0.4);
+    border-radius: 50%;
+    width: 18px; height: 18px;
+    line-height: 16px;
+    text-align: center;
+    font-size: 12px;
+    border: none; color: #fff; cursor: pointer;
+    transition: opacity 0.15s ease;
+  }
+  .link:hover .del { opacity: 1; }
+  .add-link {
+    cursor: pointer;
+    font-size: 30px;
+  }
+
+  /* 设置按钮 */
+  #settings-btn {
+    position: fixed;
+    right: 22px; bottom: 22px;
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: var(--text);
+    font-size: 22px;
+    cursor: pointer;
+    box-shadow: var(--shadow);
+    z-index: 5;
+    transition: transform 0.3s ease;
+  }
+  #settings-btn:hover { transform: rotate(45deg); }
+
+  /* 设置面板 */
+  .panel {
+    position: fixed;
+    left: 0px; top: 0px;
+    width: 340px;
+    max-width: calc(100vw - 44px);
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    z-index: 5;
+    display: none;
+    color: var(--text);
+  }
+  .panel.open { display: block; }
+  .panel::-webkit-scrollbar { width: 8px; }
+  .panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 8px; }
+  .panel::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
+  .panel::-webkit-scrollbar-track { background: transparent; }
+  .panel-bar {
+    position: sticky; top: -20px;
+    margin: -20px -20px 14px;
+    padding: 20px 20px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: move; user-select: none; -webkit-user-select: none;
+    touch-action: none;
+    font-size: 16px; font-weight: 600;
+    background: rgba(20,20,28,0.5);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+  }
+  .panel-bar .drag-hint { opacity: 0.55; font-size: 18px; cursor: move; letter-spacing: 1px; }
+  .panel section { margin-bottom: 18px; }
+  .panel label { display: block; font-size: 13px; opacity: 0.85; margin-bottom: 8px; }
+  .preset-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+  .preset {
+    aspect-ratio: 1 / 1.3;
+    border-radius: 10px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.15s ease, border 0.15s ease;
+  }
+  .preset:hover { transform: scale(1.06); }
+  .preset.active { border-color: #fff; }
+  .url-row { display: flex; gap: 8px; }
+  .url-row input {
+    flex: 1;
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.12);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    outline: none;
+  }
+  .url-row input::placeholder { color: rgba(255,255,255,0.6); }
+  .btn {
+    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.16);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+  }
+  .btn:hover { background: rgba(255,255,255,0.28); }
+  .upload-label {
+    display: block;
+    text-align: center;
+    border: 1px dashed var(--glass-border);
+    border-radius: 10px;
+    padding: 16px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s ease;
+  }
+  .upload-label:hover { background: rgba(255,255,255,0.12); }
+  .hint { font-size: 11px; opacity: 0.7; margin-top: 6px; line-height: 1.5; }
+  .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+  .slider-row span { width: 34px; opacity: 0.85; flex-shrink: 0; }
+  .slider-row input[type="range"] { flex: 1; accent-color: #fff; cursor: pointer; }
+  #toast {
+    position: fixed;
+    bottom: 96px; left: 50%;
+    transform: translateX(-50%) translateY(16px);
+    background: rgba(0,0,0,0.72);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s ease, transform .3s ease;
+    z-index: 30;
+    white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ===== 音乐解析窗口 ===== */
+  #music-btn {
+    position: fixed; right: 22px; bottom: 86px;
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    color: var(--text); font-size: 22px; cursor: pointer;
+    box-shadow: var(--shadow); z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease;
+  }
+  #music-btn:hover { background: rgba(255,255,255,0.28); }
+  .music-win {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: 360px; max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px); overflow-y: auto; overflow-x: hidden;
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--glass-border); border-radius: 18px;
+    padding: 18px; box-shadow: var(--shadow); z-index: 6; display: none; color: var(--text);
+  }
+  .music-win.open { display: block; }
+  .music-bar {
+    position: sticky; top: -18px; margin: -18px -18px 12px; padding: 18px 18px 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: move; user-select: none; -webkit-user-select: none; touch-action: none;
+    font-size: 16px; font-weight: 600; background: rgba(20,20,28,0.5);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+  }
+  .music-bar .drag-hint { opacity: 0.55; font-size: 18px; cursor: move; letter-spacing: 1px; }
+  .viz { width: 100%; height: 120px; display: block; border-radius: 12px; background: rgba(0,0,0,0.28); margin-bottom: 12px; }
+  .music-info { font-size: 13px; opacity: 0.9; margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .music-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .music-divider { height: 1px; background: rgba(255,255,255,0.16); margin: 14px -18px; }
+  .music-label { font-size: 13px; font-weight: 600; opacity: 0.92; margin-bottom: 8px; }
+  .music-progress { flex: 1; accent-color: #fff; cursor: pointer; }
+  .music-time { font-size: 12px; opacity: 0.8; white-space: nowrap; min-width: 74px; text-align: right; }
+  .music-win::-webkit-scrollbar { width: 8px; }
+  .music-win::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 8px; }
+  .music-win::-webkit-scrollbar-track { background: transparent; }
+
+  /* 歌词 */
+  .lyric-box {
+    height: 132px; overflow-y: auto; margin-bottom: 12px; padding: 10px 6px;
+    border-radius: 12px; background: rgba(0,0,0,0.22); scroll-behavior: smooth;
+    text-align: center; font-size: 13px;
+  }
+  .lyric-line { padding: 4px 6px; opacity: 0.5; transition: all .25s ease; line-height: 1.5; color: var(--text); }
+  .lyric-line.active { opacity: 1; font-weight: 600; transform: scale(1.05); text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+  .lyric-empty { padding-top: 52px; opacity: 0.5; font-size: 12px; }
+  .lyric-input {
+    width: 100%; height: 70px; resize: vertical; margin-top: 6px;
+    border: 1px solid var(--glass-border); background: rgba(255,255,255,0.12);
+    color: var(--text); border-radius: 10px; padding: 8px; font-size: 12px;
+    outline: none; font-family: inherit; line-height: 1.5;
+  }
+  .lyric-input::placeholder { color: rgba(255,255,255,0.55); }
+</style>
+</head>
+<body>
+  <div id="ext-note" style="position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(0,0,0,0.72);color:#fff;font-size:13px;padding:8px 14px;display:none;align-items:center;gap:10px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:0 2px 10px rgba(0,0,0,0.3)">
+    <span style="flex:1">📌 这是主页的扩展版：浏览器安全限制下数据与主文件相互独立，壁纸 / 壁纸库请在右上角 ⚙ 重新设置一次（重选「文件夹」或上传即可），之后每次新标签页都会自动生效。</span>
+    <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;opacity:0.95;user-select:none">
+      <input type="checkbox" id="ext-note-remember" /> 记住我的选择
+    </label>
+    <button id="ext-note-close" style="border:none;background:rgba(255,255,255,0.22);color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;white-space:nowrap">知道了</button>
+  </div>
+  <div id="wallpaper"></div>
+  <div id="overlay"></div>
+
+  <div class="container">
+    <div id="clock">00:00</div>
+    <div id="date"></div>
+
+    <div class="search-wrap">
+      <div class="engine-box">
+        <button class="engine-btn" id="engine-btn">
+          <span id="engine-name">百度</span>
+          <span class="caret">▼</span>
+        </button>
+        <div class="engine-menu" id="engine-menu"></div>
+      </div>
+      <input class="search-input" id="search-input" type="text"
+        placeholder="输入关键词，回车搜索…" autocomplete="off" />
+      <button class="search-btn" id="search-btn" title="搜索">🔍</button>
+    </div>
+
+    <div class="links" id="links"></div>
+  </div>
+
+  <button id="settings-btn" title="壁纸设置">⚙</button>
+  <button id="music-btn" title="音乐播放器">🎵</button>
+
+  <div class="music-win" id="music-win">
+    <div class="music-bar" id="music-bar">
+      <span>🎵 音乐解析</span>
+      <span class="drag-hint" title="按住拖动可移动窗口">⠿</span>
+    </div>
+    <canvas id="viz" class="viz"></canvas>
+    <div class="music-info" id="music-name">未选择音乐</div>
+    <div class="music-controls">
+      <button class="btn" id="music-play">▶ 播放</button>
+      <input type="range" id="music-progress" class="music-progress" min="0" max="100" value="0" />
+      <span id="music-time" class="music-time">0:00</span>
+    </div>
+    <label class="upload-label" for="music-file" style="margin-bottom:8px">＋ 选择本地音乐文件</label>
+    <input id="music-file" type="file" accept="audio/*" hidden />
+    <div class="url-row">
+      <input id="music-url" type="text" placeholder="或粘贴音频链接 https://…" />
+      <button class="btn" id="music-url-apply">加载</button>
+    </div>
+    <div class="slider-row" style="margin-top:8px">
+      <span>音量</span>
+      <input type="range" id="music-volume" min="0" max="1" step="0.01" value="0.8" />
+    </div>
+    <div class="hint">本地音乐可显示实时频谱；部分跨域音频链接若服务器未开启 CORS，浏览器会禁止频谱分析（仅播放无声谱），属正常安全限制。</div>
+
+    <div class="music-divider"></div>
+    <div class="music-label">网易云音乐（粘贴链接直接解析播放）</div>
+    <div class="url-row">
+      <input id="ne-input" type="text" placeholder="粘贴网易云链接或歌曲ID" />
+      <button class="btn" id="ne-parse">解析</button>
+    </div>
+    <div class="url-row" style="margin-top:6px">
+      <select id="ne-quality" style="flex:1;border:1px solid var(--glass-border);background:rgba(255,255,255,0.12);color:var(--text);border-radius:10px;padding:8px;outline:none;font-size:13px">
+        <option value="standard">标准音质</option>
+        <option value="exhigh">极高音质</option>
+        <option value="lossless">无损音质</option>
+        <option value="hires">Hi-Res</option>
+        <option value="jymaster">超清母带</option>
+      </select>
+    </div>
+    <div class="hint">由后台代发解析请求（绕过跨域限制），直连网易云官方接口获取直链；音频文件本身已开放 CORS，故频谱可正常显示。无需第三方服务，更稳定。</div>
+    <div class="music-divider"></div>
+    <div class="music-label">歌词（粘贴 LRC 可同步滚动显示）</div>
+    <textarea id="lyric-input" class="lyric-input" placeholder="[00:12.34] 歌词内容&#10;可整段粘贴 LRC 文本"></textarea>
+    <button class="btn" id="lyric-apply" style="margin-top:6px;width:100%">应用歌词</button>
+  </div>
+  <audio id="music-audio"></audio>
+
+  <div class="panel" id="panel">
+    <div class="panel-bar" id="panel-bar">
+      <span>🎨 壁纸设置</span>
+      <span class="drag-hint" title="按住拖动可移动窗口">⠿</span>
+    </div>
+
+    <section>
+      <label>选择预设壁纸</label>
+      <div class="preset-grid" id="preset-grid"></div>
+      <button class="btn" id="random-btn" style="margin-top:10px;width:100%">🎲 随机换一张壁纸</button>
+    </section>
+
+    <section>
+      <label>导入本地图片</label>
+      <label class="upload-label" for="upload-image">
+        ＋ 点击选择图片（自动保存，下次打开显示）
+      </label>
+      <input id="upload-image" type="file" accept="image/*" hidden />
+
+      <label style="margin-top:12px;display:block">导入本地视频（动态壁纸）</label>
+      <label class="upload-label" for="upload-video">
+        ＋ 点击选择视频（自动保存，下次打开显示）
+      </label>
+      <input id="upload-video" type="file" accept="video/*" hidden />
+      <div class="hint">导入的本地文件存入浏览器本地数据库，不受大小限制，刷新或重开浏览器都会自动显示。</div>
+    </section>
+
+    <section>
+      <label>📁 选择文件夹（壁纸库 + 动态轮换）</label>
+      <label class="upload-label" for="folder-input">
+        ＋ 选择本地文件夹，导入其中所有图片 / 视频
+      </label>
+      <input id="folder-input" type="file" webkitdirectory multiple hidden />
+      <div class="hint" id="gallery-count">尚未导入壁纸库</div>
+
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.9;cursor:pointer;margin-top:10px">
+        <input type="checkbox" id="rotation-enabled" /> 开启动态轮换
+      </label>
+      <div class="slider-row" style="margin-top:8px">
+        <span>间隔</span>
+        <input type="number" id="rotation-interval" min="1" max="3600" step="1" value="30" style="flex:1;border:1px solid var(--glass-border);background:rgba(255,255,255,0.12);color:var(--text);border-radius:10px;padding:8px;outline:none;font-size:13px" />
+        <span style="font-size:13px;opacity:0.85;white-space:nowrap">秒</span>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.9;cursor:pointer;margin-top:4px">
+        <input type="checkbox" id="rotation-random" /> 随机顺序（不按顺序循环）
+      </label>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" id="next-wallpaper" style="flex:1">⏭ 下一张</button>
+        <button class="btn" id="clear-gallery" style="flex:1">🗑 清空壁纸库</button>
+      </div>
+      <div class="hint">每次选择文件夹会替换原有壁纸库；导入的图片/视频存于本地数据库，刷新或重开浏览器都会自动轮换。超大视频可能因浏览器存储上限保存失败，可改用较小文件。</div>
+    </section>
+
+    <section>
+      <label>或填写图片 / 视频链接（URL）</label>
+      <div class="url-row">
+        <input id="url-input" type="text" placeholder="https://… 图片或视频地址" />
+        <button class="btn" id="url-apply">应用</button>
+      </div>
+      <div class="hint">请粘贴「图片/视频文件」直链（以 .jpg/.png/.webp 或 .mp4/.webm 结尾），而非壁纸网站的详情页链接（如 haowallpaper 的详情页会被防盗链拦截）。</div>
+    </section>
+
+    <section>
+      <label>壁纸效果</label>
+      <div class="slider-row"><span>暗化</span><input type="range" id="dark-slider" min="0" max="0.8" step="0.05" /></div>
+      <div class="slider-row"><span>模糊</span><input type="range" id="blur-slider" min="0" max="20" step="1" /></div>
+      <button class="btn" id="video-toggle" style="display:none;margin-top:6px;width:100%">⏸ 暂停动态壁纸</button>
+    </section>
+
+    <section>
+      <label>浏览器自动启动 / 主页 / 新标签页</label>
+      <button class="btn" id="set-home" style="width:100%;margin-bottom:8px">🏠 一键设为主页</button>
+      <button class="btn" id="set-newtab" style="width:100%;margin-bottom:8px">🆕 设为新建标签页</button>
+      <button class="btn" id="copy-path" style="width:100%;margin-bottom:8px">📋 复制本页路径</button>
+      <div class="hint">「一键设为主页」「设为新建标签页」都会自动识别浏览器并给出精确步骤，同时复制本页地址，你只需在设置里粘贴即可。Firefox / Safari 原生支持自定义新标签页；Chrome / Edge 需安装「New Tab Redirect」类扩展（步骤里已说明）。也可安装为应用：菜单 → 更多工具 → 创建快捷方式（勾选"作为窗口打开"）。</div>
+    </section>
+  </div>
+
+<script src="newtab.js"></script>
+</body>
+</html>

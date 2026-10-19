@@ -49,3 +49,58 @@
 
 本项目基于 [MIT 许可证](LICENSE) 开源，版权归 **duchen** 所有。
 
+---
+
+## English
+
+# Beautified Browser New Tab · Extension · Music Lyrics
+
+> Author: **duchen**
+
+A single-file beautified browser homepage, plus a Chrome / Edge extension that overrides the new-tab page, with automatic NetEase Cloud Music parsing and lyrics display. Everything runs locally in your browser — no external services.
+
+## ✨ Features
+
+- **Search box** — switch between Baidu / Google / Bing / DuckDuckGo / GitHub, etc.
+- **Custom wallpapers** — preset gradients, upload local images / videos, image / video URLs, or bulk-import an entire folder.
+- **Dynamic wallpaper & rotation** — video wallpapers; rotate multiple wallpapers by custom interval / order / random, with cross-fade transitions.
+- **Effects** — wallpaper dimming and blur strength.
+- **Quick links** — add / remove and drag-to-reorder.
+- **One-click set as homepage / new tab** — auto-copy the address and provide setup steps per browser.
+- **Music window** — play local music / audio links with a real-time spectrum visualizer.
+- **Lyrics** — synchronized LRC scrolling & highlighting; NetEase songs can auto-fetch playback URL and lyrics (falls back to the KuGou lyrics library when NetEase has none).
+
+## 📁 Structure
+
+- `index.html` — single-file homepage; double-click to open in a browser.
+- `newtab-extension/` — Chrome / Edge MV3 extension (overrides the new tab page).
+- `lyric-proxy.js` + `start-proxy.bat` — local proxy so `index.html` can auto-fetch NetEase data (see below).
+
+## 🚀 Usage
+
+### Method 1: Open the homepage directly
+Double-click `index.html`. All data (wallpapers, settings) is stored locally in the browser (localStorage / IndexedDB).
+
+### Method 2: Install as the browser new-tab page (recommended)
+1. Open `chrome://extensions` (Edge: `edge://extensions`).
+2. Enable **Developer mode** in the top-right corner.
+3. Click **Load unpacked** and select the `newtab-extension` folder of this repo.
+4. Every new tab will then show this homepage. After editing files, click **Reload** on the extension to apply changes.
+
+### Music & Lyrics
+- **Extension version**: in the music window's "NetEase auto-fetch" box, paste a link — the background service worker talks directly to NetEase's official API, no extra tool needed.
+- **index.html version**: due to browser security (CORS), first double-click `start-proxy.bat` to start the local proxy, then paste the link in "NetEase auto-fetch".
+- Auto-fetch asks NetEase for lyrics first; if NetEase returns none (copyright / login limits), it automatically falls back to the **KuGou lyrics library** by "song name + duration", covering the vast majority of songs.
+- You can also paste LRC text into the "Lyrics" box in any version for synchronized scrolling.
+
+> ⚠️ A very small number of songs (mostly covers, doujin, or strongly copyrighted tracks) have no public lyrics in either NetEase or KuGou. The music window will then clearly show "no lyrics provided by either source" — paste LRC manually. This project is for learning and personal use only; please comply with the relevant platforms' terms.
+
+## 📝 Notes
+
+- The extension and `index.html` store data independently (same-origin policy); set up the wallpaper once inside the extension.
+- This project collects no data and runs entirely in your local browser.
+
+## 📄 License
+
+This project is open-source under the [MIT License](LICENSE). Copyright belongs to **duchen**.
+

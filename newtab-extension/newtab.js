@@ -379,9 +379,12 @@
   ];
   const quoteTextEl = document.querySelector("#quote .q-text");
   const quoteAuthorEl = document.querySelector("#quote .q-author");
+  const WA_CACHE_KEY = "wenan_quotes";
+  const WA_CACHE_DAY = "wenan_quotes_day";
+  let ACTIVE_QUOTES = QUOTES;   // 默认本地兜底，联网拿到文案网后替换
   let quoteIdx = -1;
   function renderQuote(idx) {
-    const q = QUOTES[idx];
+    const q = ACTIVE_QUOTES[idx];
     if (!q) return;
     quoteTextEl.textContent = q.t;
     if (q.a) { quoteAuthorEl.textContent = q.a; quoteAuthorEl.style.display = ""; }
@@ -390,15 +393,59 @@
   }
   function dailyQuoteIndex() {
     const day = Math.floor(Date.now() / 86400000);
-    return ((day % QUOTES.length) + QUOTES.length) % QUOTES.length;
+    return ((day % ACTIVE_QUOTES.length) + ACTIVE_QUOTES.length) % ACTIVE_QUOTES.length;
   }
   function refreshQuote() {
-    if (QUOTES.length <= 1) return;
-    let i = Math.floor(Math.random() * QUOTES.length);
-    while (i === quoteIdx) i = Math.floor(Math.random() * QUOTES.length);
+    if (ACTIVE_QUOTES.length <= 1) return;
+    let i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
+    while (i === quoteIdx) i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
     renderQuote(i);
   }
+  // 解析文案网（wenanwang.com）标签页 HTML，抽取带序号的句子
+  function parseWenan(html) {
+    let text = html;
+    try {
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      text = doc.body ? doc.body.textContent : html;
+    } catch (e) {}
+    text = text.replace(/\s+/g, " ");
+    const re = /(\d{1,3})[、.．]\s*([\s\S]*?)(?=\d{1,3}[、.．]|$)/g;
+    const out = []; let m;
+    while ((m = re.exec(text)) !== null) {
+      const s = m[2].replace(/\s+/g, " ").trim();
+      if (/[<>]|http|href|class|target|\.html|\/lz\/|\/jr\/|\/rc\/|\/qg\//.test(s)) continue;
+      if (!/^[\u4e00-\u9fff]/.test(s)) continue;
+      if (s.length >= 4 && s.length <= 80) out.push({ t: s, a: "" });
+    }
+    return out;
+  }
+  function applyWenanPool(pool) {
+    if (!Array.isArray(pool) || pool.length < 10) return;
+    ACTIVE_QUOTES = pool;
+    renderQuote(dailyQuoteIndex());   // 当天序号刷新为文案网内容
+  }
+  async function loadRemoteQuotes() {
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      const cached = localStorage.getItem(WA_CACHE_KEY);
+      const cachedDay = localStorage.getItem(WA_CACHE_DAY);
+      if (cached && cachedDay === today) { applyWenanPool(JSON.parse(cached)); return; }
+    } catch (e) {}
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    try {
+      const [zy, lz] = await Promise.all([
+        fetch("https://www.wenanwang.com/zt/zhiyu/").then(r => { if (!r.ok) throw new Error("zhiyu"); return r.text(); }),
+        fetch("https://www.wenanwang.com/zt/lizhi/").then(r => { if (!r.ok) throw new Error("lizhi"); return r.text(); })
+      ]);
+      const pool = parseWenan(zy).concat(parseWenan(lz));
+      try { localStorage.setItem(WA_CACHE_KEY, JSON.stringify(pool)); localStorage.setItem(WA_CACHE_DAY, today); } catch (e) {}
+      applyWenanPool(pool);
+    } catch (e) {
+      /* 联网失败 / 被 CORS 拦截：保持本地文案兜底 */
+    }
+  }
   renderQuote(dailyQuoteIndex());
+  loadRemoteQuotes();
   const quoteRefresh = document.getElementById("quote-refresh");
   if (quoteRefresh) quoteRefresh.addEventListener("click", refreshQuote);
 

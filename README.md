@@ -6,7 +6,7 @@
 
 ## ✨ 功能
 
-- **搜索框**：可切换 百度 / Google / Bing / DuckDuckGo / GitHub 等引擎
+- **搜索框**：预设百度 / Google / 必应 / DuckDuckGo / GitHub，并支持**自定义添加 / 删除**搜索引擎（用 `%s` 占位查询词）
 - **壁纸自定义**：预设渐变、上传本地图片 / 视频、图片 / 视频链接、选择整个文件夹批量导入
 - **动态壁纸与轮换**：视频壁纸，多张壁纸按自定义间隔 / 顺序 / 随机轮换，切换时交叉淡入
 - **效果调节**：壁纸暗化、模糊强度
@@ -61,7 +61,7 @@ A single-file beautified browser homepage, plus a Chrome / Edge extension that o
 
 ## ✨ Features
 
-- **Search box** — switch between Baidu / Google / Bing / DuckDuckGo / GitHub, etc.
+- **Search box** — presets (Baidu / Google / Bing / DuckDuckGo / GitHub) plus add / remove your own engines (%s = query placeholder).
 - **Custom wallpapers** — preset gradients, upload local images / videos, image / video URLs, or bulk-import an entire folder.
 - **Dynamic wallpaper & rotation** — video wallpapers; rotate multiple wallpapers by custom interval / order / random, with cross-fade transitions.
 - **Effects** — wallpaper dimming and blur strength.

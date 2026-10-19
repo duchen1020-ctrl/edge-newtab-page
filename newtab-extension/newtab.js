@@ -3,7 +3,6 @@
   const ENGINES = {
     "百度":   "https://www.baidu.com/s?wd=",
     "Google": "https://www.google.com/search?q=",
-    "Bing":   "https://www.bing.com/search?q=",
     "必应":   "https://www.bing.com/search?q=",
     "DuckDuckGo": "https://duckduckgo.com/?q=",
     "GitHub": "https://github.com/search?q="
@@ -25,6 +24,7 @@
   const STORE_KEY = "homepage_settings";
   let settings = {
     engine: "必应",
+    customEngines: [],
     wallpaper: PRESETS[0],
     isGradient: true,
     wallpaperType: "gradient",
@@ -248,30 +248,78 @@
 
   engineName.textContent = settings.engine;
 
-  Object.keys(ENGINES).forEach(name => {
-    const b = document.createElement("button");
-    b.textContent = name;
-    if (name === settings.engine) b.classList.add("active");
-    b.onclick = () => {
-      settings.engine = name;
-      engineName.textContent = name;
+  function getEngineUrl(name, q) {
+    const custom = (settings.customEngines || []).find(e => e.name === name);
+    const tpl = custom ? custom.url : ENGINES[name];
+    if (!tpl) return ENGINES["百度"] + encodeURIComponent(q);
+    if (tpl.indexOf("%s") !== -1) return tpl.replace(/%s/g, encodeURIComponent(q));
+    return tpl + encodeURIComponent(q);
+  }
+
+  function buildEngineMenu() {
+    engineMenu.innerHTML = "";
+    const custom = settings.customEngines || [];
+    const allNames = Object.keys(ENGINES).concat(custom.map(e => e.name));
+    allNames.forEach(name => {
+      const b = document.createElement("button");
+      const label = document.createElement("span");
+      label.textContent = name;
+      b.appendChild(label);
+      if (name === settings.engine) b.classList.add("active");
+      b.onclick = (e) => {
+        e.stopPropagation();
+        settings.engine = name;
+        engineName.textContent = name;
+        save();
+        engineMenu.classList.remove("open");
+        [...engineMenu.children].forEach(c => c.classList.remove("active"));
+        b.classList.add("active");
+      };
+      if (custom.some(e => e.name === name)) {
+        const del = document.createElement("span");
+        del.className = "engine-del";
+        del.textContent = "✕";
+        del.title = "删除该搜索引擎";
+        del.onclick = (e) => {
+          e.stopPropagation();
+          if (!confirm("确定删除搜索引擎「" + name + "」？")) return;
+          settings.customEngines = custom.filter(e2 => e2.name !== name);
+          if (settings.engine === name) { settings.engine = "必应"; engineName.textContent = "必应"; }
+          save();
+          buildEngineMenu();
+        };
+        b.appendChild(del);
+      }
+      engineMenu.appendChild(b);
+    });
+    const add = document.createElement("button");
+    add.className = "engine-add";
+    add.textContent = "＋ 添加搜索引擎";
+    add.onclick = (e) => {
+      e.stopPropagation();
+      const nm = prompt("搜索引擎名称（例如：知乎）：");
+      if (!nm || !nm.trim()) return;
+      const url = prompt("搜索链接（用 %s 表示搜索词，例如：\nhttps://www.zhihu.com/search?q=%s）");
+      if (!url || !url.trim()) return;
+      settings.customEngines = (settings.customEngines || []).concat([{ name: nm.trim(), url: url.trim() }]);
+      settings.engine = nm.trim();
+      engineName.textContent = nm.trim();
       save();
+      buildEngineMenu();
       engineMenu.classList.remove("open");
-      [...engineMenu.children].forEach(c => c.classList.remove("active"));
-      b.classList.add("active");
     };
-    engineMenu.appendChild(b);
-  });
+    engineMenu.appendChild(add);
+  }
+  buildEngineMenu();
 
   engineBtn.onclick = (e) => { e.stopPropagation(); engineMenu.classList.toggle("open"); };
 
   function doSearch() {
     const q = searchInput.value.trim();
     if (!q) return;
-    const prefix = ENGINES[settings.engine] || ENGINES["百度"];
     // 若输入的是完整网址，直接打开
     if (/^https?:\/\//i.test(q)) { window.open(q, "_blank"); return; }
-    window.open(prefix + encodeURIComponent(q), "_blank");
+    window.open(getEngineUrl(settings.engine, q), "_blank");
   }
   document.getElementById("search-btn").onclick = doSearch;
   searchInput.addEventListener("keydown", (e) => { if (e.key === "Enter") doSearch(); });

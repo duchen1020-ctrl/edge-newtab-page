@@ -382,8 +382,8 @@
   ];
   const quoteTextEl = document.querySelector("#quote .q-text");
   const quoteAuthorEl = document.querySelector("#quote .q-author");
-  const WA_CACHE_KEY = "wenan_quotes";
-  const WA_CACHE_DAY = "wenan_quotes_day";
+  const WA_CACHE_KEY = "wenan_quotes_v2";   // v2：升版强制绕过旧解析器写入的脏缓存
+  const WA_CACHE_DAY = "wenan_quotes_day_v2";
   let ACTIVE_QUOTES = QUOTES;   // 默认本地兜底，联网拿到文案网后替换
   let quoteIdx = -1;
   function renderQuote(idx) {
@@ -431,9 +431,27 @@
     }
     return out;
   }
+  // 清洗：过滤列表页元数据串味（标题/日期/围观数）与异常项，并按句子去重
+  function cleanWenanPool(list) {
+    if (!Array.isArray(list)) return [];
+    const seen = new Set(); const out = [];
+    for (const q of list) {
+      if (!q || typeof q.t !== "string") continue;
+      const s = q.t.replace(/\s+/g, " ").trim();
+      if (/人围观|共\s*\d+\s*人|20\d{2}[-/年]\d{1,2}[-/月]\d{1,2}|阅读全文|点击查看|查看详情|详情页/.test(s)) continue;
+      if (s.includes("...") || s.includes("…")) continue;   // 截断预览/串味都带省略号
+      if (s.length < 4 || s.length > 80) continue;
+      if (/[<>]/.test(s)) continue;
+      if (seen.has(s)) continue;
+      seen.add(s);
+      out.push({ t: s, a: "" });
+    }
+    return out;
+  }
   function applyWenanPool(pool) {
-    if (!Array.isArray(pool) || pool.length < 10) return;
-    ACTIVE_QUOTES = pool;
+    const cleaned = cleanWenanPool(pool);
+    if (cleaned.length < 10) return;
+    ACTIVE_QUOTES = cleaned;
     renderQuote(dailyQuoteIndex());   // 当天序号刷新为文案网内容
   }
   async function loadRemoteQuotes() {
@@ -459,6 +477,7 @@
       const results = await Promise.allSettled(picks.map(u => fetch(u).then(r => r.text())));
       let pool2 = [];
       for (const r of results) if (r.status === "fulfilled") pool2 = pool2.concat(parseWenanDetail(r.value));
+      pool2 = cleanWenanPool(pool2);   // 二次清洗后再落缓存，杜绝脏数据
       if (pool2.length >= 10) {
         try {
           localStorage.setItem(WA_CACHE_KEY, JSON.stringify(pool2));

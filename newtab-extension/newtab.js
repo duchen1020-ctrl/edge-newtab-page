@@ -803,9 +803,29 @@
     document.addEventListener("touchend", onEnd);
   })();
 
-  settingsBtn.onclick = (e) => { e.stopPropagation(); panel.classList.toggle("open"); };
+  // 面板开/关（带过渡动画）：open 时入场上浮，关闭时反向收缩淡出后再隐藏
+  function togglePanel(panel) {
+    if (panel._closing) return;
+    var isOpen = panel.classList.contains("open");
+    if (isOpen) {
+      panel.classList.remove("open");
+      panel.classList.add("closing");
+      panel._closing = setTimeout(function () {
+        panel.classList.remove("closing");
+        panel._closing = null;
+      }, 200);
+    } else {
+      if (panel._closing) { clearTimeout(panel._closing); panel.classList.remove("closing"); panel._closing = null; }
+      panel.classList.add("open");
+    }
+  }
+  function closePanel(panel) {
+    if (!panel.classList.contains("open")) return;
+    togglePanel(panel);
+  }
+  settingsBtn.onclick = (e) => { e.stopPropagation(); togglePanel(panel); };
   document.addEventListener("click", (e) => {
-    if (!panel.contains(e.target) && e.target !== settingsBtn) panel.classList.remove("open");
+    if (!panel.contains(e.target) && e.target !== settingsBtn) closePanel(panel);
   });
 
   // ===== 预设壁纸 =====
@@ -1474,7 +1494,7 @@
   musicBtn.addEventListener("click", function (e) {
     e.stopPropagation();
     // 频谱已移到主页，关窗不再停止绘制
-    win.classList.toggle("open");
+    togglePanel(win);
     if (!audio.paused) startViz();
   });
 

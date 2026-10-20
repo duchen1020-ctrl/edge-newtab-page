@@ -42,11 +42,14 @@
     background-position: center;
     background-repeat: no-repeat;
     opacity: 0;
-    transition: opacity 0.8s ease;
+    transition: opacity 0.9s cubic-bezier(.4,0,.2,1), transform 1.4s cubic-bezier(.2,.8,.2,1), filter .6s ease;
     filter: blur(var(--blur));
-    will-change: opacity;
+    will-change: opacity, transform;
+    transform: scale(1.04);          /* 新壁纸轻微放大后缓缓归位，营造呼吸感 */
   }
-  .wp-layer.show { opacity: 1; }
+  .wp-layer.show { opacity: 1; transform: scale(1); }
+  /* 旧壁纸淡出时轻微反向缩放，交叉过渡更自然 */
+  .wp-layer.fading { opacity: 0; transform: scale(0.985); }
   .wp-layer video {
     position: absolute;
     inset: 0;
@@ -352,7 +355,18 @@
     display: none;
     color: var(--text);
   }
-  .panel.open { display: block; }
+  .panel.open { display: block; animation: panelIn .34s cubic-bezier(.2,.9,.3,1.12); }
+  /* 设置面板入场：轻微放大上浮+淡入；关闭时反向收缩淡出 */
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(14px) scale(.96); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .panel.closing { display: block; animation: panelOut .2s ease forwards; }
+  @keyframes panelOut {
+    from { opacity: 1; transform: translateY(0) scale(1); }
+    to   { opacity: 0; transform: translateY(10px) scale(.97); }
+  }
+  .panel.animating { transform-origin: top left; }
   .panel::-webkit-scrollbar { width: 8px; }
   .panel::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 8px; }
   .panel::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5); }
@@ -466,7 +480,8 @@
     border: 1px solid var(--glass-border); border-radius: 18px;
     padding: 18px; box-shadow: var(--shadow); z-index: 6; display: none; color: var(--text);
   }
-  .music-win.open { display: block; }
+  .music-win.open { display: block; animation: panelIn .34s cubic-bezier(.2,.9,.3,1.12); }
+  .music-win.closing { display: block; animation: panelOut .2s ease forwards; }
   .music-bar {
     position: sticky; top: -18px; margin: -18px -18px 12px; padding: 18px 18px 12px;
     display: flex; align-items: center; justify-content: space-between;
@@ -572,6 +587,9 @@
     height: 132px; overflow-y: auto; margin-bottom: 12px; padding: 10px 6px;
     border-radius: 12px; background: rgba(0,0,0,0.22); scroll-behavior: smooth;
     text-align: center; font-size: 13px;
+    /* 上下边缘渐隐遮罩：歌词滚动时顶/底自然淡出，观感更高级 */
+    -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
   }
   .lyric-line { padding: 4px 6px; opacity: 0.55; transition: all .25s ease; line-height: 1.5; color: var(--text); }
   .lyric-line.active {
@@ -1675,9 +1693,29 @@
     document.addEventListener("touchend", onEnd);
   })();
 
-  settingsBtn.onclick = (e) => { e.stopPropagation(); panel.classList.toggle("open"); };
+  // 面板开/关（带过渡动画）：open 时入场上浮，关闭时反向收缩淡出后再隐藏
+  function togglePanel(panel) {
+    if (panel._closing) return;
+    const isOpen = panel.classList.contains("open");
+    if (isOpen) {
+      panel.classList.remove("open");
+      panel.classList.add("closing");
+      panel._closing = setTimeout(() => {
+        panel.classList.remove("closing");
+        panel._closing = null;
+      }, 200);
+    } else {
+      if (panel._closing) { clearTimeout(panel._closing); panel.classList.remove("closing"); panel._closing = null; }
+      panel.classList.add("open");
+    }
+  }
+  function closePanel(panel) {
+    if (!panel.classList.contains("open")) return;
+    togglePanel(panel);
+  }
+  settingsBtn.onclick = (e) => { e.stopPropagation(); togglePanel(panel); };
   document.addEventListener("click", (e) => {
-    if (!panel.contains(e.target) && e.target !== settingsBtn) panel.classList.remove("open");
+    if (!panel.contains(e.target) && e.target !== settingsBtn) closePanel(panel);
   });
 
   // ===== 预设壁纸 =====
@@ -2316,7 +2354,7 @@
     musicBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       // 频谱已移到主页，关窗不再停止绘制
-      win.classList.toggle("open");
+      togglePanel(win);
       if (!audio.paused) startViz();
     });
 

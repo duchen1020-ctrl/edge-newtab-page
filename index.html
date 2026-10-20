@@ -115,6 +115,13 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.18; }
   }
+  #clock #cs {
+    font-size: 0.6em;
+    opacity: 0.7;
+    letter-spacing: 1px;
+    transform: translateY(-0.05em);
+    display: inline-block;
+  }
   #clock.pulse { animation: clockPulse 0.45s ease-out; }
   #clock.pulse-big { animation: clockPulseBig 0.9s cubic-bezier(.2,.9,.3,1.25); }
   @keyframes clockPulse {
@@ -598,7 +605,7 @@
 
   <div class="container">
     <div id="greeting" class="enter"></div>
-    <div id="clock" class="enter"><span id="ch">00</span><span class="colon">:</span><span id="cm">00</span></div>
+    <div id="clock" class="enter"><span id="ch">00</span><span class="colon">:</span><span id="cm">00</span><span class="colon">:</span><span id="cs">00</span></div>
     <div id="date" class="enter"></div>
     <div id="quote" class="enter">
       <span class="q-text"></span><span class="q-author"></span>
@@ -979,6 +986,7 @@
   const clockEl = document.getElementById("clock");
   const chEl = document.getElementById("ch");
   const cmEl = document.getElementById("cm");
+  const csEl = document.getElementById("cs");
   let lastMM = "";
   // ===== 农历（纯计算，无需联网；覆盖 1900–2099）=====
   const lunarInfo = [
@@ -1061,6 +1069,8 @@
         clockEl.classList.add(big ? "pulse-big" : "pulse");
       }
     }
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    if (csEl.textContent !== ss) csEl.textContent = ss;
     const days = ["日","一","二","三","四","五","六"];
     const lunar = getLunar(now);
     document.getElementById("date").textContent =

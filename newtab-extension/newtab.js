@@ -233,6 +233,7 @@
   const clockEl = document.getElementById("clock");
   const chEl = document.getElementById("ch");
   const cmEl = document.getElementById("cm");
+  const csEl = document.getElementById("cs");
   let lastMM = "";
   // ===== 农历（纯计算，无需联网；覆盖 1900–2099）=====
   const lunarInfo = [
@@ -315,6 +316,8 @@
         clockEl.classList.add(big ? "pulse-big" : "pulse");
       }
     }
+    const ss = String(now.getSeconds()).padStart(2, "0");
+    if (csEl.textContent !== ss) csEl.textContent = ss;
     const days = ["日","一","二","三","四","五","六"];
     const lunar = getLunar(now);
     document.getElementById("date").textContent =

@@ -32,6 +32,7 @@
     blur: 0,
     ambient: true,
     videoPaused: false,
+    quoteAuto: 30,                // 每日一言自动刷新间隔（秒）；设为 0 = 关闭
     rotation: { enabled: false, interval: 30, random: false },
     galleryIndex: 0,
     links: [
@@ -403,6 +404,34 @@
     let i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
     while (i === quoteIdx) i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
     renderQuote(i);
+    restartQuoteTimer();
+  }
+  // ===== 文案自动刷新（默认每 30 秒换一句，可开关/调间隔） =====
+  var QUOTE_AUTO_DEFAULT = 30;            // 秒
+  var quoteTimer = null;
+  function quoteAutoSeconds() {
+    var v = parseInt((settings.quoteAuto != null ? settings.quoteAuto : 30), 10);
+    return (isFinite(v) && v >= 5) ? v : QUOTE_AUTO_DEFAULT;
+  }
+  function restartQuoteTimer() {
+    if (quoteTimer) { clearInterval(quoteTimer); quoteTimer = null; }
+    var mode = (settings.quoteAuto != null ? settings.quoteAuto : 30);
+    if (mode === 0 || mode === "0" || mode === "off") return;
+    var sec = quoteAutoSeconds();
+    quoteTimer = setInterval(function () {
+      if (!ACTIVE_QUOTES.length) return;
+      var i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
+      while (ACTIVE_QUOTES.length > 1 && i === quoteIdx) i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
+      renderQuoteFade(i);
+    }, sec * 1000);
+  }
+  function renderQuoteFade(idx) {           // 淡入切换，避免生硬跳变
+    var box = document.getElementById("quote");
+    if (box) {
+      box.style.transition = "opacity .5s ease, transform .5s ease";
+      box.style.opacity = "0"; box.style.transform = "translateY(6px)";
+      setTimeout(function () { renderQuote(idx); box.style.opacity = "1"; box.style.transform = "translateY(0)"; }, 260);
+    } else { renderQuote(idx); }
   }
   // 抓取文案网（wenanwang.com）的治愈 / 励志文案。
   // 关键：列表页只用来拿「文章链接」；真正解析每篇「详情页」里的 <p> 带序号句子，
@@ -453,6 +482,7 @@
     if (cleaned.length < 10) return;
     ACTIVE_QUOTES = cleaned;
     renderQuote(dailyQuoteIndex());   // 当天序号刷新为文案网内容
+    restartQuoteTimer();             // 池子换了，按新池重新计自动轮换
   }
   async function loadRemoteQuotes() {
     const today = new Date().toISOString().slice(0, 10);
@@ -490,6 +520,7 @@
     }
   }
   renderQuote(dailyQuoteIndex());
+  restartQuoteTimer();
   loadRemoteQuotes();
   const quoteRefresh = document.getElementById("quote-refresh");
   if (quoteRefresh) quoteRefresh.addEventListener("click", refreshQuote);
@@ -893,6 +924,26 @@
   }
   applyAmbient();
 
+  // ===== 每日一言自动刷新设置 =====
+  var quoteAutoToggle = document.getElementById("quote-auto-toggle");
+  var quoteAutoInterval = document.getElementById("quote-auto-interval");
+  if (quoteAutoToggle) {
+    quoteAutoToggle.checked = (settings.quoteAuto !== 0);
+    quoteAutoToggle.addEventListener("change", function () {
+      settings.quoteAuto = quoteAutoToggle.checked ? (parseInt(quoteAutoInterval.value, 10) || 30) : 0;
+      save(); restartQuoteTimer();
+    });
+  }
+  if (quoteAutoInterval) {
+    quoteAutoInterval.value = String(settings.quoteAuto > 0 ? settings.quoteAuto : 30);
+    quoteAutoInterval.addEventListener("change", function () {
+      if (!quoteAutoToggle || quoteAutoToggle.checked) {
+        settings.quoteAuto = parseInt(quoteAutoInterval.value, 10) || 30;
+        save(); restartQuoteTimer();
+      }
+    });
+  }
+
   // ===== 随机壁纸 =====
   document.getElementById("random-btn").addEventListener("click", () => {
     const p = PRESETS[Math.floor(Math.random() * PRESETS.length)];
@@ -1140,6 +1191,8 @@
   var timeEl = document.getElementById("music-time");
   var nameEl = document.getElementById("music-name");
   var volEl = document.getElementById("music-volume");
+  var bufferEl = document.getElementById("music-progress-buffer");
+  var tipEl = document.getElementById("music-progress-tip");
   var fileInput = document.getElementById("music-file");
   var urlInput = document.getElementById("music-url");
   var urlApply = document.getElementById("music-url-apply");
@@ -1154,7 +1207,7 @@
 
   function sizeCanvas() {
     var dpr = window.devicePixelRatio || 1;
-    var w = canvas.offsetWidth || 320, h = 120;
+    var w = canvas.offsetWidth || 480, h = 84;
     canvas.width = w * dpr; canvas.height = h * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
@@ -1172,7 +1225,7 @@
   }
   function drawViz() {
     vizRAF = requestAnimationFrame(drawViz);
-    var w = canvas.offsetWidth || 320, h = 120;
+    var w = canvas.offsetWidth || 480, h = 84;
     ctx.clearRect(0, 0, w, h);
     if (!analyser) return;
     analyser.getByteFrequencyData(dataArray);
@@ -1190,8 +1243,8 @@
       ctx.fillRect(x, h - bh, bw, bh);
     }
   }
-  function startViz() { if (!vizRAF) { sizeCanvas(); drawViz(); } }
-  function stopViz() { if (vizRAF) { cancelAnimationFrame(vizRAF); vizRAF = null; } }
+  function startViz() { if (!vizRAF) { sizeCanvas(); drawViz(); } canvas.classList.remove("idle"); }
+  function stopViz() { if (vizRAF) { cancelAnimationFrame(vizRAF); vizRAF = null; } canvas.classList.add("idle"); }
 
   function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, function (c) {
@@ -1287,13 +1340,42 @@
     }
   });
   audio.addEventListener("play", function () { playBtn.textContent = "⏸ 暂停"; startViz(); });
-  audio.addEventListener("pause", function () { playBtn.textContent = "▶ 播放"; });
-  audio.addEventListener("ended", function () { playBtn.textContent = "▶ 播放"; progress.value = 0; progress.style.setProperty("--pct", "0%"); });
+  audio.addEventListener("pause", function () { playBtn.textContent = "▶ 播放"; stopViz(); });
+  function updateBuffer() {
+    if (!bufferEl) return;
+    try {
+      if (audio.duration && audio.buffered && audio.buffered.length) {
+        let end = 0;
+        for (let i = 0; i < audio.buffered.length; i++) {
+          if (audio.buffered.start(i) <= audio.currentTime && audio.currentTime <= audio.buffered.end(i)) {
+            end = audio.buffered.end(i); break;
+          }
+        }
+        bufferEl.style.width = (end / audio.duration * 100) + "%";
+      } else { bufferEl.style.width = "0%"; }
+    } catch (e) { bufferEl.style.width = "0%"; }
+  }
+  function bindProgressTip() {
+    if (!tipEl) return;
+    progress.addEventListener("mousemove", function (e) {
+      if (!audio.duration) return;
+      var rect = progress.getBoundingClientRect();
+      var ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      tipEl.textContent = fmtTime(ratio * audio.duration);
+      tipEl.style.left = (ratio * 100) + "%";
+    });
+    progress.addEventListener("mouseleave", function () { tipEl.style.opacity = ""; });
+  }
+  bindProgressTip();
+  audio.addEventListener("progress", updateBuffer);
+  audio.addEventListener("loadedmetadata", updateBuffer);
+  audio.addEventListener("ended", function () { playBtn.textContent = "▶ 播放"; progress.value = 0; progress.style.setProperty("--pct", "0%"); updateBuffer(); stopViz(); });
   audio.addEventListener("timeupdate", function () {
     if (audio.duration) {
       progress.value = (audio.currentTime / audio.duration) * 100;
       progress.style.setProperty("--pct", progress.value + "%");   // 渐变填充跟随播放
       timeEl.textContent = fmtTime(audio.currentTime) + " / " + fmtTime(audio.duration);
+      updateBuffer();
     }
     updateLyric();
   });
@@ -1301,8 +1383,13 @@
     progress.style.setProperty("--pct", progress.value + "%");
     if (audio.duration) audio.currentTime = (progress.value / 100) * audio.duration;
   });
-  volEl.addEventListener("input", function () { audio.volume = parseFloat(volEl.value); });
-  audio.volume = parseFloat(volEl.value);
+  function syncVolume() {
+    var v = parseFloat(volEl.value);
+    audio.volume = v;
+    volEl.style.setProperty("--vpct", (v * 100) + "%");
+  }
+  volEl.addEventListener("input", syncVolume);
+  syncVolume();
 
   fileInput.addEventListener("change", function (e) {
     var f = e.target.files[0];
@@ -1386,9 +1473,8 @@
 
   musicBtn.addEventListener("click", function (e) {
     e.stopPropagation();
-    if (win.classList.contains("open")) { win.classList.remove("open"); stopViz(); return; }
-    win.classList.add("open");
-    sizeCanvas();
+    // 频谱已移到主页，关窗不再停止绘制
+    win.classList.toggle("open");
     if (!audio.paused) startViz();
   });
 

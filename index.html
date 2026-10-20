@@ -405,7 +405,6 @@
   .hint { font-size: 11px; opacity: 0.7; margin-top: 6px; line-height: 1.5; }
   .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
   .slider-row span { width: 34px; opacity: 0.85; flex-shrink: 0; }
-  .slider-row input[type="range"] { flex: 1; accent-color: #fff; cursor: pointer; }
   #toast {
     position: fixed;
     bottom: 96px; left: 50%;
@@ -455,20 +454,34 @@
     border-bottom: 1px solid var(--glass-border);
   }
   .music-bar .drag-hint { opacity: 0.55; font-size: 18px; cursor: move; letter-spacing: 1px; }
-  .viz { width: 100%; height: 120px; display: block; border-radius: 12px; background: rgba(0,0,0,0.28); margin-bottom: 12px; }
+  /* 频谱柱形图（常驻主页，链接下方） */
+  .viz {
+    display: block; width: min(560px, 92%); height: 84px;
+    margin: 18px auto 0; background: transparent;   /* 透明：无音乐时不显示空框 */
+    opacity: .92; transition: opacity .4s ease;
+  }
+  .viz.idle { opacity: 0; }                        /* 暂停/未播放时淡出 */
+  .viz.enter { animation: fadeUp .9s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .62s; }
   .music-info { font-size: 13px; opacity: 0.9; margin-bottom: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .music-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
   /* ===== 音乐进度条（玻璃拟态） ===== */
+  .music-progress-wrap { position: relative; flex: 1; display: flex; align-items: center; height: 18px; }
+  .music-progress-buffer {
+    position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    height: 4px; width: 0%; border-radius: 99px;
+    background: rgba(255,255,255,0.28); pointer-events: none;
+  }
   .music-progress {
+    position: relative; z-index: 2;
     flex: 1; appearance: none; -webkit-appearance: none;
-    height: 18px;                       /* 加大命中区域，便于拖动 */
+    width: 100%; height: 18px;                       /* 加大命中区域，便于拖动 */
     background: transparent; cursor: pointer; outline: none;
   }
   .music-progress::-webkit-slider-runnable-track {
     height: 4px; border-radius: 99px;
     background:
       linear-gradient(90deg, #9fe9ff 0%, #ff9fe0 var(--pct, 0%)) no-repeat,
-      rgba(255,255,255,0.22);
+      transparent;                                    /* 未播放段透出下方缓冲条 */
     box-shadow: inset 0 1px 2px rgba(0,0,0,0.35);
   }
   .music-progress::-webkit-slider-thumb {
@@ -497,6 +510,37 @@
     font-size: 12px; opacity: 0.85; white-space: nowrap; min-width: 78px; text-align: right;
     font-variant-numeric: tabular-nums; letter-spacing: .3px;   /* 等宽数字，跳动不抖 */
   }
+  /* hover 时间气泡 */
+  .music-progress-tip {
+    position: absolute; bottom: 20px; left: 0; transform: translateX(-50%);
+    padding: 3px 7px; border-radius: 7px; font-size: 11px; white-space: nowrap;
+    background: rgba(20,20,28,0.85); color: #fff; font-variant-numeric: tabular-nums;
+    border: 1px solid var(--glass-border); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    opacity: 0; pointer-events: none; transition: opacity .15s ease; z-index: 5;
+  }
+  .music-progress-wrap:hover .music-progress-tip { opacity: 1; }
+  /* 音量条同款玻璃风格 */
+  .slider-row input[type="range"] {
+    flex: 1; appearance: none; -webkit-appearance: none;
+    height: 18px; background: transparent; cursor: pointer; outline: none;
+  }
+  .slider-row input[type="range"]::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 99px;
+    background:
+      linear-gradient(90deg, #9fe9ff 0%, #ff9fe0 var(--vpct, 80%)) no-repeat,
+      rgba(255,255,255,0.22);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.35);
+  }
+  .slider-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; margin-top: -4px; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 6px rgba(159,233,255,0.9), 0 0 12px rgba(255,159,224,0.55);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .slider-row input[type="range"]:hover::-webkit-slider-thumb { transform: scale(1.35); box-shadow: 0 0 10px rgba(159,233,255,1), 0 0 20px rgba(255,159,224,0.85); }
+  .slider-row input[type="range"]::-moz-range-track { height: 4px; border-radius: 99px; background: rgba(255,255,255,0.22); }
+  .slider-row input[type="range"]::-moz-range-progress { height: 4px; border-radius: 99px; background: linear-gradient(90deg, #9fe9ff, #ff9fe0); }
+  .slider-row input[type="range"]::-moz-range-thumb { width: 12px; height: 12px; border: none; border-radius: 50%; background: #fff; box-shadow: 0 0 6px rgba(159,233,255,.9); }
   .music-win::-webkit-scrollbar { width: 8px; }
   .music-win::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 8px; }
   .music-win::-webkit-scrollbar-track { background: transparent; }
@@ -660,6 +704,7 @@
     </div>
 
     <div class="links" id="links"></div>
+    <canvas id="viz" class="viz" aria-hidden="true"></canvas>
   </div>
 
   <button id="settings-btn" title="壁纸设置">⚙</button>
@@ -670,12 +715,15 @@
       <span>🎵 音乐解析</span>
       <span class="drag-hint" title="按住拖动可移动窗口">⠿</span>
     </div>
-    <canvas id="viz" class="viz"></canvas>
     <div class="music-info" id="music-name">未选择音乐</div>
     <div class="lyric-box" id="lyric-box"><div class="lyric-empty">暂无歌词</div></div>
     <div class="music-controls">
       <button class="btn" id="music-play">▶ 播放</button>
-      <input type="range" id="music-progress" class="music-progress" min="0" max="100" value="0" />
+      <div class="music-progress-wrap" id="music-progress-wrap">
+        <div class="music-progress-buffer" id="music-progress-buffer"></div>
+        <input type="range" id="music-progress" class="music-progress" min="0" max="100" value="0" />
+        <div class="music-progress-tip" id="music-progress-tip">0:00</div>
+      </div>
       <span id="music-time" class="music-time">0:00</span>
     </div>
     <label class="upload-label" for="music-file" style="margin-bottom:8px">＋ 选择本地音乐文件</label>
@@ -776,6 +824,22 @@
     </section>
 
     <section>
+      <label>每日一言</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.9;cursor:pointer">
+        <input type="checkbox" id="quote-auto-toggle" /> 自动刷新文案
+      </label>
+      <div class="slider-row" style="margin-top:8px"><span>间隔</span>
+        <select id="quote-auto-interval" class="btn" style="flex:1;padding:8px 10px">
+          <option value="10">10 秒</option>
+          <option value="30">30 秒</option>
+          <option value="60">1 分钟</option>
+          <option value="180">3 分钟</option>
+          <option value="300">5 分钟</option>
+        </select>
+      </div>
+    </section>
+
+    <section>
       <label>浏览器自动启动 / 主页 / 新标签页</label>
       <button class="btn" id="set-home" style="width:100%;margin-bottom:8px">🏠 一键设为主页</button>
       <button class="btn" id="set-newtab" style="width:100%;margin-bottom:8px">🆕 设为新建标签页</button>
@@ -818,6 +882,7 @@
     blur: 0,
     ambient: true,
     videoPaused: false,
+    quoteAuto: 30,                // 每日一言自动刷新间隔（秒）；设为 0 = 关闭
     rotation: { enabled: false, interval: 30, random: false },
     galleryIndex: 0,
     links: [
@@ -1189,6 +1254,34 @@
     let i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
     while (i === quoteIdx) i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
     renderQuote(i);
+    restartQuoteTimer();
+  }
+  // ===== 文案自动刷新（默认每 30 秒换一句，可开关/调间隔） =====
+  const QUOTE_AUTO_DEFAULT = 30;            // 秒
+  let quoteTimer = null;
+  function quoteAutoSeconds() {
+    const v = parseInt((settings.quoteAuto ?? "on"), 10);
+    return Number.isFinite(v) && v >= 5 ? v : QUOTE_AUTO_DEFAULT;
+  }
+  function restartQuoteTimer() {
+    if (quoteTimer) { clearInterval(quoteTimer); quoteTimer = null; }
+    const mode = settings.quoteAuto ?? "on";
+    if (mode === "off") return;
+    const sec = quoteAutoSeconds();
+    quoteTimer = setInterval(() => {
+      if (!ACTIVE_QUOTES.length) return;
+      let i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
+      while (ACTIVE_QUOTES.length > 1 && i === quoteIdx) i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
+      renderQuoteFade(i);
+    }, sec * 1000);
+  }
+  function renderQuoteFade(idx) {           // 淡入切换，避免生硬跳变
+    const box = document.getElementById("quote");
+    if (box && window.matchMedia) {
+      box.style.transition = "opacity .5s ease, transform .5s ease";
+      box.style.opacity = "0"; box.style.transform = "translateY(6px)";
+      setTimeout(() => { renderQuote(idx); box.style.opacity = "1"; box.style.transform = "translateY(0)"; }, 260);
+    } else { renderQuote(idx); }
   }
   // 抓取文案网（wenanwang.com）的治愈 / 励志文案。
   // 关键：列表页只用来拿「文章链接」；真正解析每篇「详情页」里的 <p> 带序号句子，
@@ -1239,6 +1332,7 @@
     if (cleaned.length < 10) return;
     ACTIVE_QUOTES = cleaned;
     renderQuote(dailyQuoteIndex());   // 当天序号刷新为文案网内容
+    restartQuoteTimer();             // 池子换了，按新池重新计自动轮换
   }
   async function loadRemoteQuotes() {
     const today = new Date().toISOString().slice(0, 10);
@@ -1276,6 +1370,7 @@
     }
   }
   renderQuote(dailyQuoteIndex());
+  restartQuoteTimer();
   loadRemoteQuotes();
   const quoteRefresh = document.getElementById("quote-refresh");
   if (quoteRefresh) quoteRefresh.addEventListener("click", refreshQuote);
@@ -1679,6 +1774,26 @@
   }
   applyAmbient();
 
+  // ===== 每日一言自动刷新设置 =====
+  const quoteAutoToggle = document.getElementById("quote-auto-toggle");
+  const quoteAutoInterval = document.getElementById("quote-auto-interval");
+  if (quoteAutoToggle) {
+    quoteAutoToggle.checked = (settings.quoteAuto !== 0);
+    quoteAutoToggle.addEventListener("change", () => {
+      settings.quoteAuto = quoteAutoToggle.checked ? (parseInt(quoteAutoInterval.value, 10) || 30) : 0;
+      save(); restartQuoteTimer();
+    });
+  }
+  if (quoteAutoInterval) {
+    quoteAutoInterval.value = String(settings.quoteAuto > 0 ? settings.quoteAuto : 30);
+    quoteAutoInterval.addEventListener("change", () => {
+      if (!quoteAutoToggle || quoteAutoToggle.checked) {
+        settings.quoteAuto = parseInt(quoteAutoInterval.value, 10) || 30;
+        save(); restartQuoteTimer();
+      }
+    });
+  }
+
   // ===== 随机壁纸 =====
   document.getElementById("random-btn").addEventListener("click", () => {
     const p = PRESETS[Math.floor(Math.random() * PRESETS.length)];
@@ -1909,6 +2024,8 @@
     const timeEl = document.getElementById("music-time");
     const nameEl = document.getElementById("music-name");
     const volEl = document.getElementById("music-volume");
+    const bufferEl = document.getElementById("music-progress-buffer");
+    const tipEl = document.getElementById("music-progress-tip");
     const fileInput = document.getElementById("music-file");
     const urlInput = document.getElementById("music-url");
     const urlApply = document.getElementById("music-url-apply");
@@ -1923,7 +2040,7 @@
 
     function sizeCanvas() {
       const dpr = window.devicePixelRatio || 1;
-      const w = canvas.offsetWidth || 320, h = 120;
+      const w = canvas.offsetWidth || 480, h = 84;
       canvas.width = w * dpr; canvas.height = h * dpr;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
@@ -1941,7 +2058,7 @@
     }
     function drawViz() {
       vizRAF = requestAnimationFrame(drawViz);
-      const w = canvas.offsetWidth || 320, h = 120;
+      const w = canvas.offsetWidth || 480, h = 84;
       ctx.clearRect(0, 0, w, h);
       if (!analyser) return;
       analyser.getByteFrequencyData(dataArray);
@@ -1959,8 +2076,9 @@
         ctx.fillRect(x, h - bh, bw, bh);
       }
     }
-    function startViz() { if (!vizRAF) { sizeCanvas(); drawViz(); } }
-    function stopViz() { if (vizRAF) { cancelAnimationFrame(vizRAF); vizRAF = null; } }
+    function startViz() { if (!vizRAF) { sizeCanvas(); drawViz(); } canvas.classList.remove("idle"); }
+    function stopViz() { if (vizRAF) { cancelAnimationFrame(vizRAF); vizRAF = null; } canvas.classList.add("idle"); }
+    function syncViz() { if (audio.src && !audio.paused && !audio.ended) startViz(); else stopViz(); }
 
     function escapeHtml(s) {
       return (s || "").replace(/[&<>"']/g, (c) =>
@@ -2051,13 +2169,42 @@
       }
     });
     audio.addEventListener("play", () => { playBtn.textContent = "⏸ 暂停"; startViz(); });
-    audio.addEventListener("pause", () => { playBtn.textContent = "▶ 播放"; });
-    audio.addEventListener("ended", () => { playBtn.textContent = "▶ 播放"; progress.value = 0; progress.style.setProperty("--pct", "0%"); });
+    audio.addEventListener("pause", () => { playBtn.textContent = "▶ 播放"; stopViz(); });
+    function updateBuffer() {
+      if (!bufferEl) return;
+      try {
+        if (audio.duration && audio.buffered && audio.buffered.length) {
+          let end = 0;
+          for (let i = 0; i < audio.buffered.length; i++) {
+            if (audio.buffered.start(i) <= audio.currentTime && audio.currentTime <= audio.buffered.end(i)) {
+              end = audio.buffered.end(i); break;
+            }
+          }
+          bufferEl.style.width = (end / audio.duration * 100) + "%";
+        } else { bufferEl.style.width = "0%"; }
+      } catch (e) { bufferEl.style.width = "0%"; }
+    }
+    function bindProgressTip() {
+      if (!tipEl) return;
+      progress.addEventListener("mousemove", (e) => {
+        if (!audio.duration) return;
+        const rect = progress.getBoundingClientRect();
+        const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+        tipEl.textContent = fmtTime(ratio * audio.duration);
+        tipEl.style.left = (ratio * 100) + "%";
+      });
+      progress.addEventListener("mouseleave", () => { tipEl.style.opacity = ""; });
+    }
+    bindProgressTip();
+    audio.addEventListener("progress", updateBuffer);
+    audio.addEventListener("loadedmetadata", updateBuffer);
+    audio.addEventListener("ended", () => { playBtn.textContent = "▶ 播放"; progress.value = 0; progress.style.setProperty("--pct", "0%"); updateBuffer(); stopViz(); });
     audio.addEventListener("timeupdate", () => {
       if (audio.duration) {
         progress.value = (audio.currentTime / audio.duration) * 100;
         progress.style.setProperty("--pct", progress.value + "%");   // 渐变填充跟随播放
         timeEl.textContent = fmtTime(audio.currentTime) + " / " + fmtTime(audio.duration);
+        updateBuffer();
       }
       updateLyric();
     });
@@ -2065,8 +2212,13 @@
       progress.style.setProperty("--pct", progress.value + "%");
       if (audio.duration) audio.currentTime = (progress.value / 100) * audio.duration;
     });
-    volEl.addEventListener("input", () => { audio.volume = parseFloat(volEl.value); });
-    audio.volume = parseFloat(volEl.value);
+    function syncVolume() {
+      const v = parseFloat(volEl.value);
+      audio.volume = v;
+      volEl.style.setProperty("--vpct", (v * 100) + "%");
+    }
+    volEl.addEventListener("input", syncVolume);
+    syncVolume();
 
     fileInput.addEventListener("change", (e) => {
       const f = e.target.files[0];
@@ -2141,9 +2293,8 @@
 
     musicBtn.addEventListener("click", (e) => {
       e.stopPropagation();
-      if (win.classList.contains("open")) { win.classList.remove("open"); stopViz(); return; }
-      win.classList.add("open");
-      sizeCanvas();
+      // 频谱已移到主页，关窗不再停止绘制
+      win.classList.toggle("open");
       if (!audio.paused) startViz();
     });
 

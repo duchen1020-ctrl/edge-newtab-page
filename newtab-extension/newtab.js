@@ -1347,6 +1347,7 @@
     else audio.removeAttribute("crossorigin");
     audio.src = src;
     nameEl.textContent = name || "未命名音频";
+    var cv = document.getElementById("music-cover"); if (cv) cv.hidden = true;   // 本地/直链无封面
     try { ensureAudioGraph(); } catch (e) {}
     if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
     audio.play().then(function () { playBtn.textContent = "⏸ 暂停"; })
@@ -1458,12 +1459,18 @@
   var neInput = document.getElementById("ne-input");
   var neParse = document.getElementById("ne-parse");
   var neQuality = document.getElementById("ne-quality");
+  var coverEl = document.getElementById("music-cover");
+  function showCover(url) {
+    if (!coverEl) return;
+    if (url) { coverEl.src = url; coverEl.hidden = false; coverEl.onerror = function () { coverEl.hidden = true; }; }
+    else { coverEl.hidden = true; coverEl.removeAttribute("src"); }
+  }
   neParse.addEventListener("click", function () {
     var raw = (neInput && neInput.value || "").trim();
-    if (!raw) { showToast("请粘贴网易云链接或歌曲ID"); return; }
+    if (!raw) { showToast("请粘贴 B站视频链接或网易云歌曲链接/ID"); return; }
     neParse.textContent = "解析中…"; neParse.disabled = true;
     chrome.runtime.sendMessage(
-      { type: "netease_parse", url: raw, musicType: neQuality ? neQuality.value : "standard" },
+      { type: "media_parse", url: raw, musicType: neQuality ? neQuality.value : "standard" },
       function (resp) {
         neParse.textContent = "解析"; neParse.disabled = false;
         if (chrome.runtime.lastError || !resp || !resp.ok || !resp.url) {
@@ -1475,14 +1482,16 @@
           }
           return;
         }
-        loadMusic(resp.url, resp.name || "网易云音乐", "anonymous");
+        loadMusic(resp.url, resp.name || "音乐", "anonymous");
+        showCover(resp.cover || "");   // loadMusic 会隐藏封面，故在其后再显示
         if (resp.lyric) {
           setLyric(resp.lyric);
-          showToast("已加载：" + (resp.name || "网易云音乐") +
+          showToast("已加载：" + (resp.name || "音乐") +
             (resp.lyricSource === "kugou" ? "（歌词来自酷狗兜底）" : ""));
         } else {
           showLyricUnavailable();
-          showToast("已加载：" + (resp.name || "网易云音乐") + "，但网易云与酷狗均无该歌词，可手动粘贴 LRC");
+          showToast("已加载：" + (resp.name || "音乐") +
+            (resp.platform === "bilibili" ? "，B站音频无内嵌歌词，可手动粘贴 LRC" : "，该歌曲暂无歌词，可手动粘贴 LRC"));
         }
       }
     );

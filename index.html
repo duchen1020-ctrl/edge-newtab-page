@@ -606,6 +606,12 @@
   .music-win::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 8px; }
   .music-win::-webkit-scrollbar-track { background: transparent; }
 
+  .music-meta { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .music-cover {
+    width: 46px; height: 46px; border-radius: 8px; object-fit: cover; flex: none;
+    border: 1px solid var(--glass-border); box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  }
+  .music-info { flex: 1; min-width: 0; }
   /* 歌词 */
   .lyric-box {
     height: 132px; overflow-y: auto; margin-bottom: 12px; padding: 10px 6px;
@@ -779,7 +785,10 @@
       <span>🎵 音乐解析</span>
       <span class="drag-hint" title="按住拖动可移动窗口">⠿</span>
     </div>
-    <div class="music-info" id="music-name">未选择音乐</div>
+    <div class="music-meta">
+      <img id="music-cover" class="music-cover" alt="" hidden />
+      <div class="music-info" id="music-name">未选择音乐</div>
+    </div>
     <div class="lyric-box" id="lyric-box"><div class="lyric-empty">暂无歌词</div></div>
     <div class="music-controls">
       <button class="btn" id="music-play">▶ 播放</button>
@@ -806,12 +815,12 @@
     <textarea id="lyric-input" class="lyric-input" placeholder="[00:12.34] 歌词内容&#10;可整段粘贴 LRC 文本"></textarea>
     <button class="btn" id="lyric-apply" style="margin-top:6px;width:100%">应用歌词</button>
     <div class="music-divider"></div>
-    <div class="music-label">网易云自动获取（需先运行 start-proxy.bat）</div>
+    <div class="music-label">🎧 在线解析（B站 / 网易云，需先运行 start-proxy.bat）</div>
     <div class="url-row">
-      <input id="ne-input" type="text" placeholder="粘贴网易云链接或歌曲ID" />
-      <button class="btn" id="ne-parse">获取</button>
+      <input id="ne-input" type="text" placeholder="粘贴 B站视频链接、网易云歌曲链接或ID" />
+      <button class="btn" id="ne-parse">解析</button>
     </div>
-    <div class="hint">双击本目录下的 start-proxy.bat 启动本地代理后即可自动解析网易云直链与歌词；未启动时连接会失败并提示。</div>
+    <div class="hint">支持：哔哩哔哩（视频链接 / BV号 / av号，自动提取音频，显示封面与标题）、网易云音乐（歌曲链接 / ID，自动取歌词）。QQ音乐/酷狗/酷我因平台签名与登录限制暂不支持，请先下载音频再用本地文件播放。</div>
   </div>
   <audio id="music-audio"></audio>
 
@@ -2240,6 +2249,7 @@
       if (crossOrigin) { audio.crossOrigin = "anonymous"; } else { audio.removeAttribute("crossorigin"); }
       audio.src = src;
       nameEl.textContent = name || "未命名音频";
+      const cv = document.getElementById("music-cover"); if (cv) cv.hidden = true;   // 本地/直链无封面
       try { ensureAudioGraph(); } catch (e) {}
       if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
       audio.play().then(() => { playBtn.textContent = "⏸ 暂停"; })
@@ -2324,34 +2334,42 @@
       });
     }
 
-    // 网易云自动获取（依赖本地代理 start-proxy.bat）
+    // 在线解析（B站 / 网易云，依赖本地代理 start-proxy.bat）
     const neInput = document.getElementById("ne-input");
     const neParseBtn = document.getElementById("ne-parse");
+    const coverEl = document.getElementById("music-cover");
+    function showCover(url) {
+      if (!coverEl) return;
+      if (url) { coverEl.src = url; coverEl.hidden = false; coverEl.onerror = () => { coverEl.hidden = true; }; }
+      else { coverEl.hidden = true; coverEl.removeAttribute("src"); }
+    }
     if (neParseBtn) {
       neParseBtn.addEventListener("click", () => {
         const raw = (neInput && neInput.value || "").trim();
-        if (!raw) { showToast("请粘贴网易云链接或歌曲ID"); return; }
-        neParseBtn.textContent = "获取中…"; neParseBtn.disabled = true;
-        fetch("http://127.0.0.1:8787/lyric?id=" + encodeURIComponent(raw))
+        if (!raw) { showToast("请粘贴 B站视频链接、网易云歌曲链接或ID"); return; }
+        neParseBtn.textContent = "解析中…"; neParseBtn.disabled = true;
+        fetch("http://127.0.0.1:8787/parse?url=" + encodeURIComponent(raw))
           .then((r) => r.json())
           .then((resp) => {
-            neParseBtn.textContent = "获取"; neParseBtn.disabled = false;
+            neParseBtn.textContent = "解析"; neParseBtn.disabled = false;
             if (!resp || !resp.ok || !resp.url) {
-              showToast("获取失败：" + ((resp && resp.error) || "请确认已运行 start-proxy.bat 且链接有效"));
+              showToast("解析失败：" + ((resp && resp.error) || "请确认已运行 start-proxy.bat 且链接有效"));
               return;
             }
-            loadMusic(resp.url, resp.name || "网易云音乐", true);
+            loadMusic(resp.url, resp.name || "音乐", true);
+            showCover(resp.cover || "");   // loadMusic 会隐藏封面，故在其后再显示
             if (resp.lyric) {
               setLyric(resp.lyric);
-              showToast("已加载：" + (resp.name || "网易云音乐") +
+              showToast("已加载：" + (resp.name || "音乐") +
                 (resp.lyricSource === "kugou" ? "（歌词来自酷狗兜底）" : ""));
             } else {
               showLyricUnavailable();
-              showToast("已加载：" + (resp.name || "网易云音乐") + "，但网易云与酷狗均无该歌词，可手动粘贴 LRC");
+              showToast("已加载：" + (resp.name || "音乐") +
+                (resp.platform === "bilibili" ? "，B站音频无内嵌歌词，可手动粘贴 LRC" : "，该歌曲暂无歌词，可手动粘贴 LRC"));
             }
           })
           .catch(() => {
-            neParseBtn.textContent = "获取"; neParseBtn.disabled = false;
+            neParseBtn.textContent = "解析"; neParseBtn.disabled = false;
             showToast("无法连接本地代理，请先双击 start-proxy.bat 启动");
           });
       });

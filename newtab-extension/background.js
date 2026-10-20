@@ -5,22 +5,32 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // 心跳 / 预热：让页面确认后台在线。MV3 空闲时 service worker 不活动属正常省电行为，
   // 收到 ping 会被唤醒并完成监听器注册，使后续解析消息能够立即送达。
   if (msg.type === "ping") { sendResponse({ ok: true, ts: Date.now() }); return true; }
+  // 通用在线解析：B站 / 网易云（自动识别平台）
+  if (msg.type === "media_parse") {
+    parseByPlatform(msg.url, msg.musicType)
+      .then(function (r) { try { sendResponse(r); } catch (e) {} })
+      .catch(function (e) { try { sendResponse({ ok: false, error: String(e && e.message ? e.message : e) }); } catch (e2) {} });
+    return true;
+  }
   if (msg.type !== "netease_parse") return;
 
   const reply = (obj) => { try { sendResponse(obj); } catch (e) {} };
 
-  let id = null;
-  try { id = extractSongId(msg.url); } catch (e) {}
+  parseNetease(msg.url, msg.musicType)
+    .then(reply)
+    .catch(function (e) { reply({ ok: false, error: String(e && e.message ? e.message : e) }); });
 
+  return true; // 保持消息通道开放，等待异步 sendResponse
+});
+
+// 网易云解析（Promise 版），供 netease_parse 与通用 parseByPlatform 共用
+function parseNetease(raw, musicType) {
+  const id = extractSongId(raw);
   if (!id) {
-    reply({ ok: false, error: "无法识别该链接，请粘贴网易云歌曲分享链接或数字歌曲ID" });
-    return true;
+    return Promise.resolve({ ok: false, error: "无法识别该链接，请粘贴网易云歌曲分享链接或数字歌曲ID" });
   }
-
-  const br = brFromQuality(msg.musicType);
-
-  // 1) 获取播放直链（官方 player url 接口）
-  fetch("https://music.163.com/api/song/enhance/player/url", {
+  const br = brFromQuality(musicType);
+  return fetch("https://music.163.com/api/song/enhance/player/url", {
     method: "POST",
     headers: {
       "Content-Type": "application/x-www-form-urlencoded",
@@ -33,15 +43,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     .then(function (j) {
       const item = j && j.data && j.data[0];
       if (!item || !item.url) {
-        reply({ ok: false, error: "该歌曲暂无可用音频（可能已下架或受版权限制）" });
-        return;
+        throw new Error("该歌曲暂无可用音频（可能已下架或受版权限制）");
       }
       const url = item.url;
-      // 2) 并行获取歌名与歌词（任一失败都不影响播放）
-      const H = {
-        "Referer": "https://music.163.com/",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
-      };
+      const H = { "Referer": "https://music.163.com/", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" };
       const pName = fetch("https://music.163.com/api/song/detail/?id=" + id + "&ids=" + encodeURIComponent("[" + id + "]"), { headers: H })
         .then(function (r) { return r.json(); })
         .then(function (j2) {
@@ -56,24 +61,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           return mergeLyric(lrc, tlrc);
         })
         .catch(function () { return ""; });
-      Promise.all([pName, pLyric]).then(function (vals) {
-        const name = vals[0], lyric0 = vals[1];
-        let lyric = lyric0, source = lyric ? "netease" : "";
-        if (!lyric) {
-          // 网易云未提供歌词（版权/登录限制）→ 兜底到酷狗歌词库
-          kugouLyric(stripArtist(name), item.playTime).then(function (kg) {
-            if (kg) { lyric = kg; source = "kugou"; }
-            reply({ ok: true, url: url, name: name, lyric: lyric, lyricSource: source });
-          });
-        } else {
-          reply({ ok: true, url: url, name: name, lyric: lyric, lyricSource: source });
-        }
+      return Promise.all([pName, pLyric]).then(function (vals) {
+        const name = vals[0];
+        let lyric = vals[1], source = lyric ? "netease" : "";
+        if (lyric) return { ok: true, url: url, name: name, lyric: lyric, lyricSource: source, platform: "netease" };
+        // 网易云未提供歌词 → 兜底酷狗
+        return kugouLyric(stripArtist(name), item.playTime).then(function (kg) {
+          if (kg) { lyric = kg; source = "kugou"; }
+          return { ok: true, url: url, name: name, lyric: lyric, lyricSource: source, platform: "netease" };
+        });
       });
-    })
-    .catch(function (e) { reply({ ok: false, error: String(e) }); });
-
-  return true; // 保持消息通道开放，等待异步 sendResponse
-});
+    });
+}
 
 // 从各种网易云链接/ID 中提取歌曲数字 ID
 function extractSongId(raw) {
@@ -156,5 +155,88 @@ function kugouLyric(name, duration) {
         })
         .catch(function () { resolve(""); });
     } catch (e) { resolve(""); }
+  });
+}
+
+// ===== B站（bilibili）音频解析 =====
+// 扩展自带 host 权限（*.bilibili.com / *.bilivideo.com），可直接跨域请求，无需本地代理。
+// 注意：B站音频 CDN 校验 Referer，manifest 里已声明后由浏览器自动带 Referer，故直连 CDN 播放。
+const BILI_HEADERS = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", "Referer": "https://www.bilibili.com/" };
+
+function extractBili(raw) {
+  raw = String(raw || "").trim();
+  let m = raw.match(/(BV[0-9A-Za-z]{10})/);
+  if (m) return { bvid: m[1] };
+  m = raw.match(/av(\d+)/i);
+  if (m) return { aid: m[1] };
+  m = raw.match(/(?:^|\/)(\d{5,})(?:\?|$|i)/);   // 纯 av 号（b23.tv短链需先展开，故不处理）
+  if (m) return { aid: m[1] };
+  return null;
+}
+
+function getBiliAudio(raw) {
+  const id = extractBili(raw);
+  if (!id) {
+    return Promise.resolve({ ok: false, error: "无法识别B站视频号，请粘贴完整链接（如 https://www.bilibili.com/video/BV1xx411c7mD）或 BV 号" });
+  }
+  const infoUrl = id.bvid
+    ? ("https://api.bilibili.com/x/web-interface/view?bvid=" + id.bvid)
+    : ("https://api.bilibili.com/x/web-interface/view?aid=" + id.aid);
+  return fetch(infoUrl, { headers: BILI_HEADERS })
+    .then(function (r) { return r.json(); })
+    .then(function (info) {
+      if (!info || info.code !== 0 || !info.data) {
+        throw new Error("B站视频信息获取失败（" + ((info && info.message) || "视频不存在或需要登录") + "）");
+      }
+      const d = info.data;
+      const page = (d.pages && d.pages[0]) || {};
+      if (!page.cid) throw new Error("未找到分P信息，该视频可能需要登录后访问");
+      const playUrl = "https://api.bilibili.com/x/player/playurl?bvid=" + d.bvid +
+        "&cid=" + page.cid + "&qn=80&fnval=16&fourk=1";
+      return fetch(playUrl, { headers: BILI_HEADERS })
+        .then(function (r) { return r.json(); })
+        .then(function (play) {
+          if (!play || play.code !== 0 || !play.data) {
+            throw new Error("B站音频地址获取失败（" + ((play && play.message) || "接口异常") + "）");
+          }
+          const pd = play.data;
+          let audioUrl = "";
+          if (pd.dash && pd.dash.audio && pd.dash.audio.length) {
+            // 选带宽最高的音质
+            const best = pd.dash.audio.slice().sort(function (a, b) { return (b.bandwidth || 0) - (a.bandwidth || 0); })[0];
+            audioUrl = best.baseUrl || (best.backupUrl && best.backupUrl[0]) || "";
+            if (audioUrl.indexOf("/n") === 0) audioUrl = audioUrl.slice(2);   // 剥掉多余的 /n 前缀
+          } else if (pd.durl && pd.durl.length) {
+            audioUrl = pd.durl[0].url;
+          }
+          if (!audioUrl) throw new Error("该视频未提供音频流（可能是纯视频或需要大会员）");
+          return {
+            ok: true, url: audioUrl, name: d.title || "B站音频",
+            cover: (d.pic || "").replace(/^http:/, "https:"),
+            duration: d.duration || 0,
+            lyric: "", lyricSource: "", platform: "bilibili", isBili: true, bvid: d.bvid
+          };
+        });
+    });
+}
+
+// 平台自动识别
+function detectPlatform(raw) {
+  raw = String(raw || "").toLowerCase();
+  if (/bilibili\.com|b23\.tv|(^|\/)av\d+|\bbv[0-9a-z]{10}/.test(raw)) return "bilibili";
+  if (/music\.163\.com|163\.cn/.test(raw)) return "netease";
+  if (/y\.qq\.com|qq\.com/.test(raw)) return "qq";
+  if (/kugou\.com/.test(raw)) return "kugou";
+  if (/kuwo\.cn/.test(raw)) return "kuwo";
+  return "";
+}
+
+function parseByPlatform(raw, quality) {
+  const p = detectPlatform(raw);
+  if (p === "bilibili") return getBiliAudio(raw);
+  if (p === "netease") return parseNetease(raw, quality);
+  return Promise.resolve({
+    ok: false,
+    error: "暂不支持该平台。目前支持：哔哩哔哩、网易云音乐。QQ音乐/酷狗/酷我因平台签名与登录限制暂无法直链解析，建议先下载音频再用「选择本地音乐文件」播放。"
   });
 }

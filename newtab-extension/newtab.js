@@ -404,21 +404,30 @@
     while (i === quoteIdx) i = Math.floor(Math.random() * ACTIVE_QUOTES.length);
     renderQuote(i);
   }
-  // 解析文案网（wenanwang.com）标签页 HTML，抽取带序号的句子
-  function parseWenan(html) {
-    let text = html;
-    try {
-      const doc = new DOMParser().parseFromString(html, "text/html");
-      text = doc.body ? doc.body.textContent : html;
-    } catch (e) {}
-    text = text.replace(/\s+/g, " ");
-    const re = /(\d{1,3})[、.．]\s*([\s\S]*?)(?=\d{1,3}[、.．]|$)/g;
-    const out = []; let m;
-    while ((m = re.exec(text)) !== null) {
-      const s = m[2].replace(/\s+/g, " ").trim();
-      if (/[<>]|http|href|class|target|\.html|\/lz\/|\/jr\/|\/rc\/|\/qg\//.test(s)) continue;
-      if (!/^[\u4e00-\u9fff]/.test(s)) continue;
-      if (s.length >= 4 && s.length <= 80) out.push({ t: s, a: "" });
+  // 抓取文案网（wenanwang.com）的治愈 / 励志文案。
+  // 关键：列表页只用来拿「文章链接」；真正解析每篇「详情页」里的 <p> 带序号句子，
+  // 避免把文章标题 / 日期 / 围观数等串味进文案（之前整页正文切分导致的 bug）。
+  const WA_BASE = "https://www.wenanwang.com";
+  const WA_TAGS = [WA_BASE + "/zt/zhiyu/", WA_BASE + "/zt/lizhi/"];
+  function parseWenanList(html) {
+    const links = [];
+    const re = /href=["'](\/lz\/\d+\.html)["']/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) if (m[1]) links.push(WA_BASE + m[1]);
+    return Array.from(new Set(links));
+  }
+  function parseWenanDetail(html) {
+    const out = [];
+    const re = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+    let m;
+    while ((m = re.exec(html)) !== null) {
+      const t = m[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      const mm = t.match(/^\d{1,3}[、.．]\s*(.+)$/);
+      if (!mm) continue;                         // 只收「序号 + 句子」的行
+      const s = mm[1].trim();
+      if (s.length < 4 || s.length > 80) continue;
+      if (/[<>]/.test(s)) continue;
+      out.push({ t: s, a: "" });
     }
     return out;
   }
@@ -436,13 +445,27 @@
     } catch (e) {}
     if (typeof navigator !== "undefined" && navigator.onLine === false) return;
     try {
-      const [zy, lz] = await Promise.all([
-        fetch("https://www.wenanwang.com/zt/zhiyu/").then(r => { if (!r.ok) throw new Error("zhiyu"); return r.text(); }),
-        fetch("https://www.wenanwang.com/zt/lizhi/").then(r => { if (!r.ok) throw new Error("lizhi"); return r.text(); })
-      ]);
-      const pool = parseWenan(zy).concat(parseWenan(lz));
-      try { localStorage.setItem(WA_CACHE_KEY, JSON.stringify(pool)); localStorage.setItem(WA_CACHE_DAY, today); } catch (e) {}
-      applyWenanPool(pool);
+      // 1) 取治愈 + 励志两个列表页，汇总文章链接
+      const lists = await Promise.all(WA_TAGS.map(u =>
+        fetch(u).then(r => { if (!r.ok) throw new Error("list"); return r.text(); })));
+      let links = [];
+      lists.forEach(h => { links = links.concat(parseWenanList(h)); });
+      links = Array.from(new Set(links));
+      if (!links.length) return;
+      // 2) 随机挑 4 篇详情页，并发抓取并解析
+      const picks = [];
+      const pool = links.slice();
+      for (let i = 0; i < 4 && pool.length; i++) picks.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+      const results = await Promise.allSettled(picks.map(u => fetch(u).then(r => r.text())));
+      let pool2 = [];
+      for (const r of results) if (r.status === "fulfilled") pool2 = pool2.concat(parseWenanDetail(r.value));
+      if (pool2.length >= 10) {
+        try {
+          localStorage.setItem(WA_CACHE_KEY, JSON.stringify(pool2));
+          localStorage.setItem(WA_CACHE_DAY, today);
+        } catch (e) {}
+        applyWenanPool(pool2);
+      }
     } catch (e) {
       /* 联网失败 / 被 CORS 拦截：保持本地文案兜底 */
     }

@@ -545,8 +545,10 @@
     engineMenu.innerHTML = "";
     const custom = settings.customEngines || [];
     const allNames = Object.keys(ENGINES).concat(custom.map(e => e.name));
-    allNames.forEach(name => {
+    allNames.forEach((name, idx) => {
       const b = document.createElement("button");
+      b.className = "eg-item";                 // 逐项淡入
+      b.style.setProperty("--i", idx);
       const label = document.createElement("span");
       label.textContent = name;
       b.appendChild(label);
@@ -578,7 +580,8 @@
       engineMenu.appendChild(b);
     });
     const add = document.createElement("button");
-    add.className = "engine-add";
+    add.className = "engine-add eg-item";
+    add.style.setProperty("--i", allNames.length);
     add.textContent = "＋ 添加搜索引擎";
     add.onclick = (e) => {
       e.stopPropagation();
@@ -596,13 +599,15 @@
     engineMenu.appendChild(add);
 
     const exp = document.createElement("button");
-    exp.className = "engine-add";
+    exp.className = "engine-add eg-item";
+    exp.style.setProperty("--i", allNames.length + 1);
     exp.textContent = "⤓ 导出引擎配置";
     exp.onclick = (e) => { e.stopPropagation(); exportEngines(); };
     engineMenu.appendChild(exp);
 
     const imp = document.createElement("button");
-    imp.className = "engine-add";
+    imp.className = "engine-add eg-item";
+    imp.style.setProperty("--i", allNames.length + 2);
     imp.textContent = "⤒ 导入引擎配置";
     imp.onclick = (e) => { e.stopPropagation(); const fi = document.getElementById("engine-import"); if (fi) fi.click(); };
     engineMenu.appendChild(imp);

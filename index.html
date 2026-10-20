@@ -221,7 +221,31 @@
     overflow-y: auto;
     display: none;
   }
-  .engine-menu.open { display: block; }
+  .engine-menu.open { display: block; animation: menuIn .26s cubic-bezier(.2,.9,.3,1.1); }
+  /* 下拉菜单整体上浮淡入 */
+  @keyframes menuIn {
+    from { opacity: 0; transform: translateY(10px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  /* 逐项错峰淡入：用 --i 做每项延迟，JS 渲染时按序号赋值 */
+  .engine-menu button.eg-item {
+    opacity: 0;
+    animation: menuItemIn .3s cubic-bezier(.2,.9,.3,1.05) forwards;
+    animation-delay: calc(var(--i, 0) * 0.032s);
+  }
+  @keyframes menuItemIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  /* hover 时左侧流光标记 */
+  .engine-menu button { position: relative; overflow: hidden; }
+  .engine-menu button::before {
+    content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 0; border-radius: 0 3px 3px 0;
+    background: linear-gradient(180deg, #9fe9ff, #ff9fe0);
+    transition: height .22s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .engine-menu button:hover::before, .engine-menu button.active::before { height: 60%; }
   .engine-menu button {
     display: flex;
     align-items: center;
@@ -1435,8 +1459,10 @@
     engineMenu.innerHTML = "";
     const custom = settings.customEngines || [];
     const allNames = Object.keys(ENGINES).concat(custom.map(e => e.name));
-    allNames.forEach(name => {
+    allNames.forEach((name, idx) => {
       const b = document.createElement("button");
+      b.className = "eg-item";                 // 逐项淡入
+      b.style.setProperty("--i", idx);
       const label = document.createElement("span");
       label.textContent = name;
       b.appendChild(label);
@@ -1468,7 +1494,8 @@
       engineMenu.appendChild(b);
     });
     const add = document.createElement("button");
-    add.className = "engine-add";
+    add.className = "engine-add eg-item";
+    add.style.setProperty("--i", allNames.length);
     add.textContent = "＋ 添加搜索引擎";
     add.onclick = (e) => {
       e.stopPropagation();
@@ -1486,13 +1513,15 @@
     engineMenu.appendChild(add);
 
     const exp = document.createElement("button");
-    exp.className = "engine-add";
+    exp.className = "engine-add eg-item";
+    exp.style.setProperty("--i", allNames.length + 1);
     exp.textContent = "⤓ 导出引擎配置";
     exp.onclick = (e) => { e.stopPropagation(); exportEngines(); };
     engineMenu.appendChild(exp);
 
     const imp = document.createElement("button");
-    imp.className = "engine-add";
+    imp.className = "engine-add eg-item";
+    imp.style.setProperty("--i", allNames.length + 2);
     imp.textContent = "⤒ 导入引擎配置";
     imp.onclick = (e) => { e.stopPropagation(); const fi = document.getElementById("engine-import"); if (fi) fi.click(); };
     engineMenu.appendChild(imp);

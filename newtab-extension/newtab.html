@@ -460,8 +460,44 @@
   .music-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
   .music-divider { height: 1px; background: rgba(255,255,255,0.16); margin: 14px -18px; }
   .music-label { font-size: 13px; font-weight: 600; opacity: 0.92; margin-bottom: 8px; }
-  .music-progress { flex: 1; accent-color: #fff; cursor: pointer; }
-  .music-time { font-size: 12px; opacity: 0.8; white-space: nowrap; min-width: 74px; text-align: right; }
+  .music-progress {
+    flex: 1; appearance: none; -webkit-appearance: none;
+    height: 18px;                       /* 加大命中区域，便于拖动 */
+    background: transparent; cursor: pointer; outline: none;
+  }
+  /* ===== 音乐进度条（玻璃拟态） ===== */
+  .music-progress::-webkit-slider-runnable-track {
+    height: 4px; border-radius: 99px;
+    background:
+      linear-gradient(90deg, #9fe9ff 0%, #ff9fe0 var(--pct, 0%)) no-repeat,
+      rgba(255,255,255,0.22);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.35);
+  }
+  .music-progress::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 12px; margin-top: -4px;   /* 垂直居中于 4px 轨道 */
+    border-radius: 50%; background: #fff;
+    box-shadow: 0 0 6px rgba(159,233,255,0.9), 0 0 12px rgba(255,159,224,0.55);
+    transition: transform .18s ease, box-shadow .18s ease;
+  }
+  .music-progress:hover::-webkit-slider-thumb,
+  .music-progress:active::-webkit-slider-thumb {
+    transform: scale(1.35);
+    box-shadow: 0 0 10px rgba(159,233,255,1), 0 0 20px rgba(255,159,224,0.85);
+  }
+  .music-progress:active::-webkit-slider-runnable-track { box-shadow: inset 0 1px 2px rgba(0,0,0,0.5), 0 0 10px rgba(159,233,255,0.35); }
+  /* Firefox */
+  .music-progress::-moz-range-track { height: 4px; border-radius: 99px; background: rgba(255,255,255,0.22); }
+  .music-progress::-moz-range-progress { height: 4px; border-radius: 99px; background: linear-gradient(90deg, #9fe9ff, #ff9fe0); }
+  .music-progress::-moz-range-thumb {
+    width: 12px; height: 12px; border: none; border-radius: 50%; background: #fff;
+    box-shadow: 0 0 6px rgba(159,233,255,0.9), 0 0 12px rgba(255,159,224,0.55);
+  }
+  .music-progress:hover::-moz-range-thumb { transform: scale(1.35); }
+  .music-time {
+    font-size: 12px; opacity: 0.85; white-space: nowrap; min-width: 78px; text-align: right;
+    font-variant-numeric: tabular-nums; letter-spacing: .3px;   /* 等宽数字，跳动不抖 */
+  }
   .music-win::-webkit-scrollbar { width: 8px; }
   .music-win::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 8px; }
   .music-win::-webkit-scrollbar-track { background: transparent; }

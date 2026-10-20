@@ -1288,15 +1288,17 @@
   });
   audio.addEventListener("play", function () { playBtn.textContent = "⏸ 暂停"; startViz(); });
   audio.addEventListener("pause", function () { playBtn.textContent = "▶ 播放"; });
-  audio.addEventListener("ended", function () { playBtn.textContent = "▶ 播放"; progress.value = 0; });
+  audio.addEventListener("ended", function () { playBtn.textContent = "▶ 播放"; progress.value = 0; progress.style.setProperty("--pct", "0%"); });
   audio.addEventListener("timeupdate", function () {
     if (audio.duration) {
       progress.value = (audio.currentTime / audio.duration) * 100;
+      progress.style.setProperty("--pct", progress.value + "%");   // 渐变填充跟随播放
       timeEl.textContent = fmtTime(audio.currentTime) + " / " + fmtTime(audio.duration);
     }
     updateLyric();
   });
   progress.addEventListener("input", function () {
+    progress.style.setProperty("--pct", progress.value + "%");
     if (audio.duration) audio.currentTime = (progress.value / 100) * audio.duration;
   });
   volEl.addEventListener("input", function () { audio.volume = parseFloat(volEl.value); });

@@ -267,8 +267,19 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+server.on("error", (e) => {
+  if (e && e.code === "EADDRINUSE") {
+    console.log("[ERROR] Port " + PORT + " is already in use.");
+    console.log("Another proxy instance is probably running. Close it (or run: taskkill /F /IM node.exe) and try again.");
+  } else {
+    console.log("[ERROR] " + String(e && e.message ? e.message : e));
+  }
+  process.exit(1);
+});
+
 server.listen(PORT, "127.0.0.1", () => {
-  console.log("音乐解析代理已启动：http://127.0.0.1:" + PORT);
-  console.log("支持平台：哔哩哔哩(B站视频链接/BV号) 、 网易云音乐(歌曲链接/ID)");
-  console.log("在主页「网易云/B站 自动获取」里粘贴链接即可自动播放（B站还会显示封面与标题）。");
+  // 启动日志用英文，避免 Windows CMD 代码页导致中文乱码
+  console.log("Music Parse Proxy started: http://127.0.0.1:" + PORT);
+  console.log("Supported: Bilibili (video URL / BV id) , NetEase Music (song URL / id)");
+  console.log("Paste a link in the homepage panel to parse & play it.");
 });

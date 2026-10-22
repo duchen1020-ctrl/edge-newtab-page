@@ -6,7 +6,10 @@
 <title>我的主页</title>
 <style>
   :root {
-    --glass-bg: rgba(255, 255, 255, 0.16);
+    /* 玻璃卡片可调参数：--glass-alpha = 底色不透明度(0~0.5)，--glass-blur = 背景模糊(0~30px) */
+    --glass-alpha: 0.16;
+    --glass-blur: 16px;
+    --glass-bg: rgba(255, 255, 255, var(--glass-alpha));
     --glass-border: rgba(255, 255, 255, 0.28);
     --text: #fff;
     --shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
@@ -143,8 +146,8 @@
     width: min(640px, 92vw);
     display: flex;
     background: var(--glass-bg);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(calc(var(--glass-blur) * .875));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * .875));
     border: 1px solid var(--glass-border);
     border-radius: 999px;
     box-shadow: var(--shadow);
@@ -210,8 +213,8 @@
     bottom: calc(100% + 8px);
     left: 0;
     background: var(--glass-bg);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(calc(var(--glass-blur) * .875));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * .875));
     border: 1px solid var(--glass-border);
     border-radius: 14px;
     padding: 6px;
@@ -292,8 +295,8 @@
     width: 86px;
     height: 86px;
     background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(calc(var(--glass-blur) * .625));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * .625));
     border: 1px solid var(--glass-border);
     border-radius: 18px;
     display: flex;
@@ -348,8 +351,8 @@
     border-radius: 50%;
     border: 1px solid var(--glass-border);
     background: var(--glass-bg);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(calc(var(--glass-blur) * .625));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * .625));
     color: var(--text);
     font-size: 22px;
     cursor: pointer;
@@ -369,8 +372,8 @@
     overflow-y: auto;
     overflow-x: hidden;
     background: var(--glass-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(calc(var(--glass-blur) * 1.25));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.25));
     border: 1px solid var(--glass-border);
     border-radius: 18px;
     padding: 20px;
@@ -404,8 +407,8 @@
     touch-action: none;
     font-size: 16px; font-weight: 600;
     background: rgba(20,20,28,0.5);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(calc(var(--glass-blur) * 1.25));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.25));
     border-bottom: 1px solid var(--glass-border);
   }
   .panel-bar .drag-hint { opacity: 0.55; font-size: 18px; cursor: move; letter-spacing: 1px; }
@@ -488,7 +491,7 @@
     width: 48px; height: 48px; border-radius: 50%;
     border: 1px solid var(--glass-border);
     background: var(--glass-bg);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(calc(var(--glass-blur) * 1.25)); -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.25));
     color: var(--text); font-size: 22px; cursor: pointer;
     box-shadow: var(--shadow); z-index: 5;
     display: flex; align-items: center; justify-content: center;
@@ -500,7 +503,7 @@
     width: 360px; max-width: calc(100vw - 40px);
     max-height: calc(100vh - 40px); overflow-y: auto; overflow-x: hidden;
     background: var(--glass-bg);
-    backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(calc(var(--glass-blur) * 1.5)); -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.5));
     border: 1px solid var(--glass-border); border-radius: 18px;
     padding: 18px; box-shadow: var(--shadow); z-index: 6; display: none; color: var(--text);
   }
@@ -511,7 +514,7 @@
     display: flex; align-items: center; justify-content: space-between;
     cursor: move; user-select: none; -webkit-user-select: none; touch-action: none;
     font-size: 16px; font-weight: 600; background: rgba(20,20,28,0.5);
-    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(calc(var(--glass-blur) * 1.25)); -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.25));
     border-bottom: 1px solid var(--glass-border);
   }
   .music-bar .drag-hint { opacity: 0.55; font-size: 18px; cursor: move; letter-spacing: 1px; }
@@ -576,7 +579,7 @@
     position: absolute; bottom: 20px; left: 0; transform: translateX(-50%);
     padding: 3px 7px; border-radius: 7px; font-size: 11px; white-space: nowrap;
     background: rgba(20,20,28,0.85); color: #fff; font-variant-numeric: tabular-nums;
-    border: 1px solid var(--glass-border); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border); backdrop-filter: blur(calc(var(--glass-blur) * .5)); -webkit-backdrop-filter: blur(calc(var(--glass-blur) * .5));
     opacity: 0; pointer-events: none; transition: opacity .15s ease; z-index: 5;
   }
   .music-progress-wrap:hover .music-progress-tip { opacity: 1; }
@@ -674,7 +677,7 @@
     background: rgba(255,255,255,.10);
     color: #eaf2ff; cursor: pointer; font-size: 13px; line-height: 1;
     display: flex; align-items: center; justify-content: center;
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(calc(var(--glass-blur) * .375)); -webkit-backdrop-filter: blur(calc(var(--glass-blur) * .375));
     opacity: .5; transition: transform .35s ease, opacity .2s ease, background .2s ease;
   }
   #quote .q-refresh:hover { opacity: 1; background: rgba(255,255,255,.22); transform: rotate(180deg); }
@@ -701,7 +704,7 @@
     width: min(340px, 90vw); margin-top: 16px; padding: 16px 18px 14px;
     border-radius: 18px;
     background: var(--glass-bg);
-    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
     border: 1px solid var(--glass-border);
     box-shadow: var(--shadow);
     color: var(--text);
@@ -832,6 +835,17 @@
   }
   .link:hover .favimg { transform: scale(1.18); }
 
+  /* 玻璃预设按钮组 */
+  .glass-presets { display: flex; gap: 6px; margin-top: 8px; }
+  .glass-presets .btn {
+    flex: 1; padding: 7px 4px; font-size: 12px; border-radius: 9px; text-align: center;
+    transition: background .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+  }
+  .glass-presets .btn:hover { transform: translateY(-2px); background: rgba(255,255,255,.26); }
+  .glass-presets .btn.on {
+    background: rgba(159,233,255,.22); border-color: rgba(159,233,255,.6);
+    box-shadow: 0 0 12px rgba(159,233,255,.28); color: #eaf6ff;
+  }
   /* ===== 玻璃质感：细微噪点 ===== */
   .panel::before, .music-win::before {
     content: ""; position: absolute; inset: 0; border-radius: inherit;
@@ -1025,6 +1039,19 @@
     </section>
 
     <section>
+      <label>卡片玻璃效果</label>
+      <div class="slider-row"><span>淡化</span><input type="range" id="glass-alpha-slider" min="0" max="0.5" step="0.01" /></div>
+      <div class="slider-row"><span>模糊</span><input type="range" id="glass-blur-slider" min="0" max="30" step="1" /></div>
+      <div class="glass-presets" id="glass-presets">
+        <button class="btn" data-a="0.06" data-b="6">通透</button>
+        <button class="btn" data-a="0.16" data-b="16">标准</button>
+        <button class="btn" data-a="0.3" data-b="22">厚实</button>
+        <button class="btn" data-a="0.42" data-b="28">磨砂</button>
+      </div>
+      <div class="hint" style="margin-top:6px">淡化程度决定卡片底色的通透感（越小越透明），模糊决定背景虚化强度。天气卡片、快捷链接、设置面板与音乐面板会同步生效。</div>
+    </section>
+
+    <section>
       <label>每日一言</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.9;cursor:pointer">
         <input type="checkbox" id="quote-auto-toggle" /> 自动刷新文案
@@ -1077,6 +1104,8 @@
     engine: "必应",
     customEngines: [],
     weather: null,              // 天气卡片上次定位的城市 {lat, lon, city}
+    glassAlpha: 0.16,           // 卡片底色不透明度（淡化程度）
+    glassBlur: 16,              // 卡片背景模糊(px)
     wallpaper: PRESETS[0],
     isGradient: true,
     wallpaperType: "gradient",
@@ -2266,6 +2295,50 @@
   darkSlider.value = settings.dark;
   blurSlider.value = settings.blur;
   applyEffects();
+
+  // ===== 卡片玻璃效果：淡化程度 / 模糊程度 =====
+  const glassAlphaSlider = document.getElementById("glass-alpha-slider");
+  const glassBlurSlider = document.getElementById("glass-blur-slider");
+  const glassPresets = document.getElementById("glass-presets");
+  function applyGlass() {
+    const root = document.documentElement;
+    root.style.setProperty("--glass-alpha", settings.glassAlpha);
+    root.style.setProperty("--glass-blur", settings.glassBlur + "px");
+    // 同步预设按钮选中态
+    if (glassPresets) {
+      glassPresets.querySelectorAll(".btn").forEach(b => {
+        const match = Math.abs(parseFloat(b.dataset.a) - settings.glassAlpha) < 0.005 &&
+                      parseInt(b.dataset.b, 10) === settings.glassBlur;
+        b.classList.toggle("on", match);
+      });
+    }
+  }
+  if (glassAlphaSlider) {
+    glassAlphaSlider.value = settings.glassAlpha;
+    glassAlphaSlider.addEventListener("input", () => {
+      settings.glassAlpha = parseFloat(glassAlphaSlider.value);
+      applyGlass(); save();
+    });
+  }
+  if (glassBlurSlider) {
+    glassBlurSlider.value = settings.glassBlur;
+    glassBlurSlider.addEventListener("input", () => {
+      settings.glassBlur = parseInt(glassBlurSlider.value, 10);
+      applyGlass(); save();
+    });
+  }
+  if (glassPresets) {
+    glassPresets.querySelectorAll(".btn").forEach(b => {
+      b.addEventListener("click", () => {
+        settings.glassAlpha = parseFloat(b.dataset.a);
+        settings.glassBlur = parseInt(b.dataset.b, 10);
+        if (glassAlphaSlider) glassAlphaSlider.value = settings.glassAlpha;
+        if (glassBlurSlider) glassBlurSlider.value = settings.glassBlur;
+        applyGlass(); save();
+      });
+    });
+  }
+  applyGlass();
   darkSlider.addEventListener("input", () => {
     settings.dark = parseFloat(darkSlider.value); applyEffects(); save();
   });

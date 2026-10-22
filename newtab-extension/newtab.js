@@ -26,6 +26,8 @@
     engine: "必应",
     customEngines: [],
     weather: null,              // 天气卡片上次定位的城市 {lat, lon, city}
+    glassAlpha: 0.16,           // 卡片底色不透明度（淡化程度）
+    glassBlur: 16,              // 卡片背景模糊(px)
     wallpaper: PRESETS[0],
     isGradient: true,
     wallpaperType: "gradient",
@@ -1215,6 +1217,50 @@
   darkSlider.value = settings.dark;
   blurSlider.value = settings.blur;
   applyEffects();
+
+  // ===== 卡片玻璃效果：淡化程度 / 模糊程度 =====
+  const glassAlphaSlider = document.getElementById("glass-alpha-slider");
+  const glassBlurSlider = document.getElementById("glass-blur-slider");
+  const glassPresets = document.getElementById("glass-presets");
+  function applyGlass() {
+    const root = document.documentElement;
+    root.style.setProperty("--glass-alpha", settings.glassAlpha);
+    root.style.setProperty("--glass-blur", settings.glassBlur + "px");
+    // 同步预设按钮选中态
+    if (glassPresets) {
+      glassPresets.querySelectorAll(".btn").forEach(b => {
+        const match = Math.abs(parseFloat(b.dataset.a) - settings.glassAlpha) < 0.005 &&
+                      parseInt(b.dataset.b, 10) === settings.glassBlur;
+        b.classList.toggle("on", match);
+      });
+    }
+  }
+  if (glassAlphaSlider) {
+    glassAlphaSlider.value = settings.glassAlpha;
+    glassAlphaSlider.addEventListener("input", () => {
+      settings.glassAlpha = parseFloat(glassAlphaSlider.value);
+      applyGlass(); save();
+    });
+  }
+  if (glassBlurSlider) {
+    glassBlurSlider.value = settings.glassBlur;
+    glassBlurSlider.addEventListener("input", () => {
+      settings.glassBlur = parseInt(glassBlurSlider.value, 10);
+      applyGlass(); save();
+    });
+  }
+  if (glassPresets) {
+    glassPresets.querySelectorAll(".btn").forEach(b => {
+      b.addEventListener("click", () => {
+        settings.glassAlpha = parseFloat(b.dataset.a);
+        settings.glassBlur = parseInt(b.dataset.b, 10);
+        if (glassAlphaSlider) glassAlphaSlider.value = settings.glassAlpha;
+        if (glassBlurSlider) glassBlurSlider.value = settings.glassBlur;
+        applyGlass(); save();
+      });
+    });
+  }
+  applyGlass();
   darkSlider.addEventListener("input", () => {
     settings.dark = parseFloat(darkSlider.value); applyEffects(); save();
   });

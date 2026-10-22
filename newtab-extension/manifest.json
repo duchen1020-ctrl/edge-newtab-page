@@ -15,7 +15,11 @@
     "https://*.bilibili.com/*",
     "https://api.bilibili.com/*",
     "https://*.bilivideo.com/*",
-    "https://*.hdslb.com/*"
+    "https://*.hdslb.com/*",
+    "https://api.open-meteo.com/*",
+    "https://geocoding-api.open-meteo.com/*",
+    "https://ipwho.is/*",
+    "http://ip-api.com/*"
   ],
   "background": {
     "service_worker": "background.js"

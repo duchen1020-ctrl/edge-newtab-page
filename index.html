@@ -695,7 +695,111 @@
     animation-delay: calc(.5s + var(--i, 0) * 0.06s);
   }
 
-  /* ===== 背景氛围光斑 ===== */
+  /* ===== 动态天气卡片 ===== */
+  .weather-card {
+    position: relative; overflow: hidden;
+    width: min(340px, 90vw); margin-top: 16px; padding: 16px 18px 14px;
+    border-radius: 18px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow);
+    color: var(--text);
+    transition: transform .3s cubic-bezier(.2,.9,.3,1.1), box-shadow .3s ease, border-color .3s ease;
+  }
+  .weather-card:hover {
+    transform: translateY(-4px) scale(1.015);
+    border-color: rgba(160,200,255,.5);
+    box-shadow: 0 16px 44px rgba(0,0,0,.42), 0 0 28px rgba(159,233,255,.18);
+  }
+  /* 鼠标跟随的高光（--mx/--my 由 JS 更新） */
+  .weather-card::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%),
+      rgba(255,255,255,.20), transparent 62%);
+    opacity: 0; transition: opacity .3s ease;
+  }
+  .weather-card:hover::before { opacity: 1; }
+  /* 天气粒子画布层 */
+  .weather-fx {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; opacity: .85;
+  }
+  .weather-main { position: relative; z-index: 2; display: flex; align-items: center; gap: 14px; }
+  .weather-icon {
+    position: relative; width: 54px; height: 54px; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 34px; line-height: 1;
+    filter: drop-shadow(0 3px 10px rgba(0,0,0,.4));
+    transition: transform .4s cubic-bezier(.2,.9,.3,1.4);
+  }
+  .weather-card:hover .weather-icon { transform: scale(1.12) rotate(-6deg); }
+  /* 晴天：光芒旋转 */
+  .weather-icon.sun::after {
+    content: ""; position: absolute; inset: -8px; border-radius: 50%;
+    background: conic-gradient(from 0deg, transparent 0deg, rgba(255,220,120,.55) 40deg, transparent 80deg, transparent 360deg);
+    animation: sunSpin 6s linear infinite; z-index: -1;
+  }
+  @keyframes sunSpin { to { transform: rotate(360deg); } }
+  .weather-now { position: relative; z-index: 2; min-width: 0; }
+  .weather-temp {
+    font-size: 34px; font-weight: 800; line-height: 1.05; letter-spacing: -1px;
+    background: linear-gradient(180deg, #fff 0%, #bfe0ff 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; color: transparent;
+    filter: drop-shadow(0 2px 8px rgba(0,0,0,.35));
+  }
+  .weather-desc { font-size: 12.5px; opacity: .88; margin-top: 3px; }
+  .weather-meta {
+    position: relative; z-index: 2; margin-top: 10px; font-size: 12px; opacity: .8;
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .weather-city { font-weight: 600; }
+  .weather-dot { opacity: .5; }
+  /* 未来 24 小时（简化 4 个时点） */
+  .weather-hours {
+    position: relative; z-index: 2; margin-top: 11px;
+    display: flex; justify-content: space-between; gap: 4px;
+  }
+  .weather-hour {
+    flex: 1; text-align: center; padding: 6px 2px; border-radius: 10px;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.10);
+    transition: transform .2s ease, background .2s ease, border-color .2s ease;
+  }
+  .weather-hour:hover { transform: translateY(-3px); background: rgba(255,255,255,.16); border-color: rgba(159,233,255,.4); }
+  .weather-hour .h-time { font-size: 10.5px; opacity: .75; }
+  .weather-hour .h-icon { font-size: 15px; margin: 3px 0 2px; }
+  .weather-hour .h-temp { font-size: 11.5px; font-weight: 600; }
+  /* 操作区 */
+  .weather-actions { position: relative; z-index: 3; margin-top: 12px; display: flex; gap: 6px; }
+  .weather-actions input {
+    flex: 1; min-width: 0; padding: 7px 11px; font-size: 12.5px; color: var(--text);
+    background: rgba(255,255,255,.10); border: 1px solid var(--glass-border);
+    border-radius: 10px; outline: none; transition: border-color .2s ease, background .2s ease;
+  }
+  .weather-actions input::placeholder { color: rgba(255,255,255,.55); }
+  .weather-actions input:focus { border-color: rgba(159,233,255,.6); background: rgba(255,255,255,.16); }
+  .weather-actions .btn { padding: 7px 10px; font-size: 13px; border-radius: 10px; }
+  /* 城市搜索建议 */
+  .weather-suggest {
+    position: absolute; left: 18px; right: 18px; bottom: 58px; z-index: 5;
+    display: none; max-height: 150px; overflow-y: auto;
+    background: rgba(20,20,28,.92); border: 1px solid var(--glass-border);
+    border-radius: 12px; box-shadow: var(--shadow); padding: 5px;
+  }
+  .weather-suggest.open { display: block; animation: menuIn .2s cubic-bezier(.2,.9,.3,1.1); }
+  .weather-suggest button {
+    display: block; width: 100%; text-align: left; padding: 8px 10px; font-size: 12.5px;
+    color: var(--text); background: transparent; border: none; border-radius: 8px; cursor: pointer;
+  }
+  .weather-suggest button:hover { background: rgba(255,255,255,.16); }
+  .weather-suggest .s-sub { font-size: 11px; opacity: .65; margin-left: 6px; }
+  .weather-card.loading .weather-desc { opacity: .6; }
+  /* 数字滚动高亮 */
+  .weather-temp.bump { animation: tempBump .45s cubic-bezier(.2,.9,.3,1.3); }
+  @keyframes tempBump { 0% { transform: scale(1); } 45% { transform: scale(1.12); } 100% { transform: scale(1); } }
+  .weather-card.enter { animation: fadeUp .9s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .52s; }
+
   #ambient { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
   #ambient .blob {
     position: absolute; border-radius: 50%;
@@ -754,6 +858,30 @@
     <div id="greeting" class="enter"></div>
     <div id="clock" class="enter"><span id="ch">00</span><span class="colon">:</span><span id="cm">00</span><span class="colon">:</span><span id="cs">00</span></div>
     <div id="date" class="enter"></div>
+
+    <!-- ===== 动态天气卡片 ===== -->
+    <div class="weather-card enter" id="weather-card">
+      <canvas class="weather-fx" id="weather-fx" aria-hidden="true"></canvas>
+      <div class="weather-main">
+        <div class="weather-icon" id="weather-icon" aria-hidden="true"></div>
+        <div class="weather-now">
+          <div class="weather-temp" id="weather-temp">--°</div>
+          <div class="weather-desc" id="weather-desc">正在获取天气…</div>
+        </div>
+      </div>
+      <div class="weather-meta">
+        <span class="weather-city" id="weather-city">定位中…</span>
+        <span class="weather-dot">·</span>
+        <span id="weather-range">-- / --°</span>
+      </div>
+      <div class="weather-hours" id="weather-hours"></div>
+      <div class="weather-actions">
+        <input id="weather-search" type="text" placeholder="搜索城市，如 上海" maxlength="20" />
+        <button class="btn" id="weather-locate" title="重新定位">📍</button>
+        <button class="btn" id="weather-refresh" title="刷新">↻</button>
+      </div>
+      <div class="weather-suggest" id="weather-suggest"></div>
+    </div>
     <div id="quote" class="enter">
       <span class="q-text"></span><span class="q-author"></span>
       <button class="q-refresh" id="quote-refresh" title="换一句" aria-label="换一句">↻</button>
@@ -948,6 +1076,7 @@
   let settings = {
     engine: "必应",
     customEngines: [],
+    weather: null,              // 天气卡片上次定位的城市 {lat, lon, city}
     wallpaper: PRESETS[0],
     isGradient: true,
     wallpaperType: "gradient",
@@ -973,6 +1102,300 @@
   } catch (e) {}
 
   function save() { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); }
+
+  // ===== 动态天气卡片 =====
+  // 数据源：Open-Meteo（免密钥、CORS 友好）+ ip-api.com 自动定位
+  const WMO = {
+    0:  { t: "晴",     i: "☀️" },
+    1:  { t: "晴间多云", i: "🌤️" },
+    2:  { t: "多云",   i: "⛅" },
+    3:  { t: "阴",     i: "☁️" },
+    45: { t: "有雾",   i: "🌫️" },
+    48: { t: "雾凇",   i: "🌫️" },
+    51: { t: "毛毛雨", i: "🌦️" },
+    53: { t: "小雨",   i: "🌦️" },
+    55: { t: "中雨",   i: "🌧️" },
+    56: { t: "冻雨",   i: "🌧️" },
+    57: { t: "冻雨",   i: "🌧️" },
+    61: { t: "小雨",   i: "🌦️" },
+    63: { t: "中雨",   i: "🌧️" },
+    65: { t: "大雨",   i: "🌧️" },
+    66: { t: "冻雨",   i: "🌧️" },
+    67: { t: "冻雨",   i: "🌧️" },
+    71: { t: "小雪",   i: "🌨️" },
+    73: { t: "中雪",   i: "❄️" },
+    75: { t: "大雪",   i: "❄️" },
+    77: { t: "雪粒",   i: "🌨️" },
+    80: { t: "阵雨",   i: "🌦️" },
+    81: { t: "强阵雨", i: "🌧️" },
+    82: { t: "暴雨",   i: "⛈️" },
+    85: { t: "阵雪",   i: "🌨️" },
+    86: { t: "强阵雪", i: "❄️" },
+    95: { t: "雷阵雨", i: "⛈️" },
+    96: { t: "雷阵雨伴冰雹", i: "⛈️" },
+    99: { t: "强雷暴", i: "⛈️" }
+  };
+  function wmo(code) { return WMO[code] || { t: "未知", i: "🌡️" }; }
+  // 粒子类型：sun / cloud / rain / snow / fog
+  function wmoFx(code) {
+    if (code === 0 || code === 1) return "sun";
+    if (code === 2 || code === 3) return "cloud";
+    if (code >= 45 && code <= 48) return "fog";
+    if (code >= 71 && code <= 77) return "snow";
+    if (code >= 86) return "snow";
+    if (code >= 95) return "rain";
+    if (code >= 51) return "rain";
+    return "cloud";
+  }
+
+  const wCard = document.getElementById("weather-card");
+  const wIcon = document.getElementById("weather-icon");
+  const wTemp = document.getElementById("weather-temp");
+  const wDesc = document.getElementById("weather-desc");
+  const wCity = document.getElementById("weather-city");
+  const wRange = document.getElementById("weather-range");
+  const wHours = document.getElementById("weather-hours");
+  const wSearch = document.getElementById("weather-search");
+  const wSuggest = document.getElementById("weather-suggest");
+  const wLocate = document.getElementById("weather-locate");
+  const wRefresh = document.getElementById("weather-refresh");
+  const wFx = document.getElementById("weather-fx");
+  const wFxCtx = wFx ? wFx.getContext("2d") : null;
+
+  let wParticles = [], wFxType = "cloud", wFxRAF = null, wHover = false;
+
+  // ---- 粒子特效（canvas）----
+  function wSizeCanvas() {
+    if (!wFx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = wFx.offsetWidth || 340, h = wFx.offsetHeight || 200;
+    wFx.width = w * dpr; wFx.height = h * dpr;
+    wFxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    wFx._w = w; wFx._h = h;
+  }
+  function wInitParticles() {
+    if (!wFx) return;
+    const w = wFx._w || 340, h = wFx._h || 200;
+    wParticles = [];
+    const n = wFxType === "rain" ? 46 : wFxType === "snow" ? 34 : wFxType === "fog" ? 12 : 8;
+    for (let i = 0; i < n; i++) {
+      wParticles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: wFxType === "snow" ? 1.2 + Math.random() * 2.4 : 0,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: wFxType === "rain" ? 2.4 + Math.random() * 2.6
+            : wFxType === "snow" ? 0.25 + Math.random() * 0.5
+            : wFxType === "fog" ? 0.12 + Math.random() * 0.2
+            : 0.15 + Math.random() * 0.25,
+        a: 0.25 + Math.random() * 0.5,
+        s: 12 + Math.random() * 26
+      });
+    }
+  }
+  function wDrawFx() {
+    if (!wFxCtx) return;
+    wFxRAF = requestAnimationFrame(wDrawFx);
+    const w = wFx._w || 340, h = wFx._h || 200;
+    wFxCtx.clearRect(0, 0, w, h);
+    const speed = wHover ? 1.7 : 1;   // 悬停时粒子加速
+    if (wFxType === "sun") {
+      // 阳光光束
+      for (let i = 0; i < 5; i++) {
+        const ang = (i / 5) * Math.PI * 2 + performance.now() / 3000;
+        const cx = w * 0.78, cy = h * 0.22;
+        const g = wFxCtx.createLinearGradient(cx, cy, cx + Math.cos(ang) * 150, cy + Math.sin(ang) * 150);
+        g.addColorStop(0, "rgba(255,214,120,.16)");
+        g.addColorStop(1, "rgba(255,214,120,0)");
+        wFxCtx.strokeStyle = g; wFxCtx.lineWidth = 16; wFxCtx.lineCap = "round";
+        wFxCtx.beginPath(); wFxCtx.moveTo(cx, cy);
+        wFxCtx.lineTo(cx + Math.cos(ang) * 150, cy + Math.sin(ang) * 150); wFxCtx.stroke();
+      }
+    } else if (wFxType === "rain") {
+      wFxCtx.strokeStyle = "rgba(170,210,255,.55)"; wFxCtx.lineWidth = 1.1; wFxCtx.lineCap = "round";
+      for (const p of wParticles) {
+        p.y += p.vy * speed; p.x += p.vx * speed;
+        if (p.y > h) { p.y = -8; p.x = Math.random() * w; }
+        wFxCtx.beginPath(); wFxCtx.moveTo(p.x, p.y);
+        wFxCtx.lineTo(p.x - 1.6 * speed, p.y + 9 * speed); wFxCtx.stroke();
+      }
+    } else if (wFxType === "snow") {
+      for (const p of wParticles) {
+        p.y += p.vy * speed;
+        p.x += p.vx * speed + Math.sin((p.y + performance.now() / 400) / 12) * 0.35;
+        if (p.y > h) { p.y = -6; p.x = Math.random() * w; }
+        wFxCtx.fillStyle = "rgba(255,255,255," + p.a + ")";
+        wFxCtx.beginPath(); wFxCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2); wFxCtx.fill();
+      }
+    } else if (wFxType === "fog") {
+      for (const p of wParticles) {
+        p.x += p.vx * speed;
+        if (p.x - p.s > w) { p.x = -p.s; p.y = Math.random() * h; }
+        const g = wFxCtx.createLinearGradient(p.x - p.s, 0, p.x + p.s, 0);
+        g.addColorStop(0, "rgba(220,230,245,0)");
+        g.addColorStop(.5, "rgba(220,230,245," + (p.a * 0.45) + ")");
+        g.addColorStop(1, "rgba(220,230,245,0)");
+        wFxCtx.fillStyle = g;
+        wFxCtx.fillRect(p.x - p.s, p.y, p.s * 2, 22);
+      }
+    } else {
+      // 多云：柔和飘动的云雾团
+      for (const p of wParticles) {
+        p.x += p.vx * speed;
+        if (p.x - p.s > w) { p.x = -p.s; p.y = Math.random() * h; }
+        const g = wFxCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.s);
+        g.addColorStop(0, "rgba(255,255,255," + (p.a * 0.16) + ")");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        wFxCtx.fillStyle = g;
+        wFxCtx.beginPath(); wFxCtx.arc(p.x, p.y, p.s, 0, Math.PI * 2); wFxCtx.fill();
+      }
+    }
+  }
+  function wSetFx(type) {
+    wFxType = type;
+    if (!wIcon) return;
+    wIcon.classList.remove("sun");
+    if (type === "sun") wIcon.classList.add("sun");
+    if (wFx) { wSizeCanvas(); wInitParticles(); }
+  }
+  function wStartFx() { if (!wFxRAF) wDrawFx(); }
+  function wStopFx() { if (wFxRAF) { cancelAnimationFrame(wFxRAF); wFxRAF = null; } }
+
+  // ---- 数据获取 ----
+  function wRender(data) {
+    const cw = data.current_weather, daily = data.daily;
+    const info = wmo(cw.weathercode);
+    wIcon.textContent = info.i;
+    wDesc.textContent = info.t;
+    wCity.textContent = data.cityName || "当前位置";
+    const tmax = Math.round(daily.temperature_2m_max[0]);
+    const tmin = Math.round(daily.temperature_2m_min[0]);
+    wRange.textContent = tmin + "° / " + tmax + "°";
+    // 温度滚动动画
+    wTemp.classList.remove("bump");
+    void wTemp.offsetWidth;
+    wTemp.classList.add("bump");
+    wTemp.textContent = Math.round(cw.temperature) + "°";
+    // 未来 4 个时点（用当前 + 之后 3 天，简化展示）
+    const hours = [];
+    for (let i = 0; i < 3 && i < daily.time.length; i++) {
+      const d = new Date(daily.time[i] + "T12:00");
+      const label = i === 0 ? "今天" : (d.getMonth() + 1) + "/" + d.getDate();
+      hours.push({ label, icon: wmo(daily.weathercode[i]).i, temp: Math.round(daily.temperature_2m_max[i]) + "°" });
+    }
+    wHours.innerHTML = hours.map(h =>
+      '<div class="weather-hour"><div class="h-time">' + h.label + '</div>' +
+      '<div class="h-icon">' + h.icon + '</div><div class="h-temp">' + h.temp + '</div></div>'
+    ).join("");
+    wSetFx(wmoFx(cw.weathercode));
+  }
+  async function wFetchWeather(lat, lon, cityName) {
+    try {
+      const url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon +
+        "&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=3";
+      const r = await fetch(url);
+      const j = await r.json();
+      if (!j || !j.current_weather) throw new Error("bad data");
+      wRender(Object.assign({}, j, { cityName: cityName }));
+      settings.weather = { lat: lat, lon: lon, city: cityName };
+      save();
+      if (wCard) wCard.classList.remove("loading");
+    } catch (e) {
+      if (wDesc) wDesc.textContent = "天气获取失败，点击 📍 重试";
+      if (wCard) wCard.classList.remove("loading");
+    }
+  }
+  async function wDoLocate() {
+    if (wCard) wCard.classList.add("loading");
+    if (wDesc) wDesc.textContent = "正在定位…";
+    // 依次尝试多个 IP 定位源（主源用 https，避免混合内容被浏览器拦截）
+    const sources = [
+      { url: "https://ipwho.is/",
+        pick: (j) => j && j.success && j.latitude != null
+          ? { lat: j.latitude, lon: j.longitude, name: [j.city, j.region, j.country].filter(Boolean).join(" · ") }
+          : null },
+      { url: "http://ip-api.com/json/?lang=zh-CN",
+        pick: (j) => j && j.status === "success"
+          ? { lat: j.lat, lon: j.lon, name: [j.city, j.regionName, j.country].filter(Boolean).join(" · ") }
+          : null }
+    ];
+    for (const s of sources) {
+      try {
+        const r = await fetch(s.url);
+        const j = await r.json();
+        const p = s.pick(j);
+        if (p) { await wFetchWeather(p.lat, p.lon, p.name); return; }
+      } catch (e) { /* 换下一个源 */ }
+    }
+    if (wDesc) wDesc.textContent = "定位失败，请手动搜索城市";
+    if (wCard) wCard.classList.remove("loading");
+  }
+  async function wSearchCity(name) {
+    if (!name.trim()) return;
+    try {
+      const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(name.trim()) + "&count=5&language=zh");
+      const j = await r.json();
+      const list = (j && j.results) || [];
+      if (!list.length) { wSuggest.innerHTML = '<button disabled style="opacity:.6">未找到该城市</button>'; wSuggest.classList.add("open"); return; }
+      wSuggest.innerHTML = list.map(c =>
+        '<button data-lat="' + c.latitude + '" data-lon="' + c.longitude + '" data-name="' +
+        (c.name + " · " + (c.admin1 || c.country || "")) + '">' + c.name +
+        '<span class="s-sub">' + (c.admin1 || c.country || "") + '</span></button>'
+      ).join("");
+      wSuggest.classList.add("open");
+      wSuggest.querySelectorAll("button[data-lat]").forEach(b => {
+        b.onclick = () => {
+          wSuggest.classList.remove("open");
+          wSearch.value = "";
+          wFetchWeather(b.dataset.lat, b.dataset.lon, b.dataset.name);
+        };
+      });
+    } catch (e) {
+      wSuggest.classList.remove("open");
+    }
+  }
+
+  if (wCard) {
+    // 初始化
+    wCard.classList.add("loading");
+    wSizeCanvas(); wInitParticles(); wStartFx();
+    // 鼠标跟随高光 + 悬停加速粒子
+    wCard.addEventListener("mousemove", (e) => {
+      const r = wCard.getBoundingClientRect();
+      wCard.style.setProperty("--mx", ((e.clientX - r.left) / r.width * 100) + "%");
+      wCard.style.setProperty("--my", ((e.clientY - r.top) / r.height * 100) + "%");
+    });
+    wCard.addEventListener("mouseenter", () => { wHover = true; });
+    wCard.addEventListener("mouseleave", () => { wHover = false; });
+    // 城市搜索（输入即搜，防抖）
+    let wTimer = null;
+    wSearch.addEventListener("input", () => {
+      clearTimeout(wTimer);
+      const v = wSearch.value.trim();
+      if (!v) { wSuggest.classList.remove("open"); return; }
+      wTimer = setTimeout(() => wSearchCity(v), 350);
+    });
+    wSearch.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { clearTimeout(wTimer); wSearchCity(wSearch.value.trim()); }
+      if (e.key === "Escape") wSuggest.classList.remove("open");
+    });
+    document.addEventListener("click", (e) => {
+      if (!wSuggest.contains(e.target) && e.target !== wSearch) wSuggest.classList.remove("open");
+    });
+    wLocate.addEventListener("click", wDoLocate);
+    wRefresh.addEventListener("click", () => {
+      const s = settings.weather;
+      if (s && s.lat != null) wFetchWeather(s.lat, s.lon, s.city);
+      else wDoLocate();
+    });
+    // 首次加载：优先用上次保存的城市，否则 IP 定位
+    if (settings.weather && settings.weather.lat != null) {
+      wFetchWeather(settings.weather.lat, settings.weather.lon, settings.weather.city);
+    } else {
+      wDoLocate();
+    }
+    window.addEventListener("resize", () => { wSizeCanvas(); wInitParticles(); });
+  }
 
   // ===== 壁纸应用（双图层交叉淡入，切换更自然）=====
   const wallpaperEl = document.getElementById("wallpaper");

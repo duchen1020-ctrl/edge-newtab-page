@@ -25,6 +25,7 @@
   let settings = {
     engine: "必应",
     customEngines: [],
+    weather: null,              // 天气卡片上次定位的城市 {lat, lon, city}
     wallpaper: PRESETS[0],
     isGradient: true,
     wallpaperType: "gradient",
@@ -50,6 +51,300 @@
   } catch (e) {}
 
   function save() { localStorage.setItem(STORE_KEY, JSON.stringify(settings)); }
+
+  // ===== 动态天气卡片 =====
+  // 数据源：Open-Meteo（免密钥、CORS 友好）+ ip-api.com 自动定位
+  const WMO = {
+    0:  { t: "晴",     i: "☀️" },
+    1:  { t: "晴间多云", i: "🌤️" },
+    2:  { t: "多云",   i: "⛅" },
+    3:  { t: "阴",     i: "☁️" },
+    45: { t: "有雾",   i: "🌫️" },
+    48: { t: "雾凇",   i: "🌫️" },
+    51: { t: "毛毛雨", i: "🌦️" },
+    53: { t: "小雨",   i: "🌦️" },
+    55: { t: "中雨",   i: "🌧️" },
+    56: { t: "冻雨",   i: "🌧️" },
+    57: { t: "冻雨",   i: "🌧️" },
+    61: { t: "小雨",   i: "🌦️" },
+    63: { t: "中雨",   i: "🌧️" },
+    65: { t: "大雨",   i: "🌧️" },
+    66: { t: "冻雨",   i: "🌧️" },
+    67: { t: "冻雨",   i: "🌧️" },
+    71: { t: "小雪",   i: "🌨️" },
+    73: { t: "中雪",   i: "❄️" },
+    75: { t: "大雪",   i: "❄️" },
+    77: { t: "雪粒",   i: "🌨️" },
+    80: { t: "阵雨",   i: "🌦️" },
+    81: { t: "强阵雨", i: "🌧️" },
+    82: { t: "暴雨",   i: "⛈️" },
+    85: { t: "阵雪",   i: "🌨️" },
+    86: { t: "强阵雪", i: "❄️" },
+    95: { t: "雷阵雨", i: "⛈️" },
+    96: { t: "雷阵雨伴冰雹", i: "⛈️" },
+    99: { t: "强雷暴", i: "⛈️" }
+  };
+  function wmo(code) { return WMO[code] || { t: "未知", i: "🌡️" }; }
+  // 粒子类型：sun / cloud / rain / snow / fog
+  function wmoFx(code) {
+    if (code === 0 || code === 1) return "sun";
+    if (code === 2 || code === 3) return "cloud";
+    if (code >= 45 && code <= 48) return "fog";
+    if (code >= 71 && code <= 77) return "snow";
+    if (code >= 86) return "snow";
+    if (code >= 95) return "rain";
+    if (code >= 51) return "rain";
+    return "cloud";
+  }
+
+  const wCard = document.getElementById("weather-card");
+  const wIcon = document.getElementById("weather-icon");
+  const wTemp = document.getElementById("weather-temp");
+  const wDesc = document.getElementById("weather-desc");
+  const wCity = document.getElementById("weather-city");
+  const wRange = document.getElementById("weather-range");
+  const wHours = document.getElementById("weather-hours");
+  const wSearch = document.getElementById("weather-search");
+  const wSuggest = document.getElementById("weather-suggest");
+  const wLocate = document.getElementById("weather-locate");
+  const wRefresh = document.getElementById("weather-refresh");
+  const wFx = document.getElementById("weather-fx");
+  const wFxCtx = wFx ? wFx.getContext("2d") : null;
+
+  let wParticles = [], wFxType = "cloud", wFxRAF = null, wHover = false;
+
+  // ---- 粒子特效（canvas）----
+  function wSizeCanvas() {
+    if (!wFx) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = wFx.offsetWidth || 340, h = wFx.offsetHeight || 200;
+    wFx.width = w * dpr; wFx.height = h * dpr;
+    wFxCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    wFx._w = w; wFx._h = h;
+  }
+  function wInitParticles() {
+    if (!wFx) return;
+    const w = wFx._w || 340, h = wFx._h || 200;
+    wParticles = [];
+    const n = wFxType === "rain" ? 46 : wFxType === "snow" ? 34 : wFxType === "fog" ? 12 : 8;
+    for (let i = 0; i < n; i++) {
+      wParticles.push({
+        x: Math.random() * w,
+        y: Math.random() * h,
+        r: wFxType === "snow" ? 1.2 + Math.random() * 2.4 : 0,
+        vx: (Math.random() - 0.5) * 0.5,
+        vy: wFxType === "rain" ? 2.4 + Math.random() * 2.6
+            : wFxType === "snow" ? 0.25 + Math.random() * 0.5
+            : wFxType === "fog" ? 0.12 + Math.random() * 0.2
+            : 0.15 + Math.random() * 0.25,
+        a: 0.25 + Math.random() * 0.5,
+        s: 12 + Math.random() * 26
+      });
+    }
+  }
+  function wDrawFx() {
+    if (!wFxCtx) return;
+    wFxRAF = requestAnimationFrame(wDrawFx);
+    const w = wFx._w || 340, h = wFx._h || 200;
+    wFxCtx.clearRect(0, 0, w, h);
+    const speed = wHover ? 1.7 : 1;   // 悬停时粒子加速
+    if (wFxType === "sun") {
+      // 阳光光束
+      for (let i = 0; i < 5; i++) {
+        const ang = (i / 5) * Math.PI * 2 + performance.now() / 3000;
+        const cx = w * 0.78, cy = h * 0.22;
+        const g = wFxCtx.createLinearGradient(cx, cy, cx + Math.cos(ang) * 150, cy + Math.sin(ang) * 150);
+        g.addColorStop(0, "rgba(255,214,120,.16)");
+        g.addColorStop(1, "rgba(255,214,120,0)");
+        wFxCtx.strokeStyle = g; wFxCtx.lineWidth = 16; wFxCtx.lineCap = "round";
+        wFxCtx.beginPath(); wFxCtx.moveTo(cx, cy);
+        wFxCtx.lineTo(cx + Math.cos(ang) * 150, cy + Math.sin(ang) * 150); wFxCtx.stroke();
+      }
+    } else if (wFxType === "rain") {
+      wFxCtx.strokeStyle = "rgba(170,210,255,.55)"; wFxCtx.lineWidth = 1.1; wFxCtx.lineCap = "round";
+      for (const p of wParticles) {
+        p.y += p.vy * speed; p.x += p.vx * speed;
+        if (p.y > h) { p.y = -8; p.x = Math.random() * w; }
+        wFxCtx.beginPath(); wFxCtx.moveTo(p.x, p.y);
+        wFxCtx.lineTo(p.x - 1.6 * speed, p.y + 9 * speed); wFxCtx.stroke();
+      }
+    } else if (wFxType === "snow") {
+      for (const p of wParticles) {
+        p.y += p.vy * speed;
+        p.x += p.vx * speed + Math.sin((p.y + performance.now() / 400) / 12) * 0.35;
+        if (p.y > h) { p.y = -6; p.x = Math.random() * w; }
+        wFxCtx.fillStyle = "rgba(255,255,255," + p.a + ")";
+        wFxCtx.beginPath(); wFxCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2); wFxCtx.fill();
+      }
+    } else if (wFxType === "fog") {
+      for (const p of wParticles) {
+        p.x += p.vx * speed;
+        if (p.x - p.s > w) { p.x = -p.s; p.y = Math.random() * h; }
+        const g = wFxCtx.createLinearGradient(p.x - p.s, 0, p.x + p.s, 0);
+        g.addColorStop(0, "rgba(220,230,245,0)");
+        g.addColorStop(.5, "rgba(220,230,245," + (p.a * 0.45) + ")");
+        g.addColorStop(1, "rgba(220,230,245,0)");
+        wFxCtx.fillStyle = g;
+        wFxCtx.fillRect(p.x - p.s, p.y, p.s * 2, 22);
+      }
+    } else {
+      // 多云：柔和飘动的云雾团
+      for (const p of wParticles) {
+        p.x += p.vx * speed;
+        if (p.x - p.s > w) { p.x = -p.s; p.y = Math.random() * h; }
+        const g = wFxCtx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.s);
+        g.addColorStop(0, "rgba(255,255,255," + (p.a * 0.16) + ")");
+        g.addColorStop(1, "rgba(255,255,255,0)");
+        wFxCtx.fillStyle = g;
+        wFxCtx.beginPath(); wFxCtx.arc(p.x, p.y, p.s, 0, Math.PI * 2); wFxCtx.fill();
+      }
+    }
+  }
+  function wSetFx(type) {
+    wFxType = type;
+    if (!wIcon) return;
+    wIcon.classList.remove("sun");
+    if (type === "sun") wIcon.classList.add("sun");
+    if (wFx) { wSizeCanvas(); wInitParticles(); }
+  }
+  function wStartFx() { if (!wFxRAF) wDrawFx(); }
+  function wStopFx() { if (wFxRAF) { cancelAnimationFrame(wFxRAF); wFxRAF = null; } }
+
+  // ---- 数据获取 ----
+  function wRender(data) {
+    const cw = data.current_weather, daily = data.daily;
+    const info = wmo(cw.weathercode);
+    wIcon.textContent = info.i;
+    wDesc.textContent = info.t;
+    wCity.textContent = data.cityName || "当前位置";
+    const tmax = Math.round(daily.temperature_2m_max[0]);
+    const tmin = Math.round(daily.temperature_2m_min[0]);
+    wRange.textContent = tmin + "° / " + tmax + "°";
+    // 温度滚动动画
+    wTemp.classList.remove("bump");
+    void wTemp.offsetWidth;
+    wTemp.classList.add("bump");
+    wTemp.textContent = Math.round(cw.temperature) + "°";
+    // 未来 4 个时点（用当前 + 之后 3 天，简化展示）
+    const hours = [];
+    for (let i = 0; i < 3 && i < daily.time.length; i++) {
+      const d = new Date(daily.time[i] + "T12:00");
+      const label = i === 0 ? "今天" : (d.getMonth() + 1) + "/" + d.getDate();
+      hours.push({ label, icon: wmo(daily.weathercode[i]).i, temp: Math.round(daily.temperature_2m_max[i]) + "°" });
+    }
+    wHours.innerHTML = hours.map(h =>
+      '<div class="weather-hour"><div class="h-time">' + h.label + '</div>' +
+      '<div class="h-icon">' + h.icon + '</div><div class="h-temp">' + h.temp + '</div></div>'
+    ).join("");
+    wSetFx(wmoFx(cw.weathercode));
+  }
+  async function wFetchWeather(lat, lon, cityName) {
+    try {
+      const url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon +
+        "&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=3";
+      const r = await fetch(url);
+      const j = await r.json();
+      if (!j || !j.current_weather) throw new Error("bad data");
+      wRender(Object.assign({}, j, { cityName: cityName }));
+      settings.weather = { lat: lat, lon: lon, city: cityName };
+      save();
+      if (wCard) wCard.classList.remove("loading");
+    } catch (e) {
+      if (wDesc) wDesc.textContent = "天气获取失败，点击 📍 重试";
+      if (wCard) wCard.classList.remove("loading");
+    }
+  }
+  async function wDoLocate() {
+    if (wCard) wCard.classList.add("loading");
+    if (wDesc) wDesc.textContent = "正在定位…";
+    // 依次尝试多个 IP 定位源（主源用 https，避免混合内容被浏览器拦截）
+    const sources = [
+      { url: "https://ipwho.is/",
+        pick: (j) => j && j.success && j.latitude != null
+          ? { lat: j.latitude, lon: j.longitude, name: [j.city, j.region, j.country].filter(Boolean).join(" · ") }
+          : null },
+      { url: "http://ip-api.com/json/?lang=zh-CN",
+        pick: (j) => j && j.status === "success"
+          ? { lat: j.lat, lon: j.lon, name: [j.city, j.regionName, j.country].filter(Boolean).join(" · ") }
+          : null }
+    ];
+    for (const s of sources) {
+      try {
+        const r = await fetch(s.url);
+        const j = await r.json();
+        const p = s.pick(j);
+        if (p) { await wFetchWeather(p.lat, p.lon, p.name); return; }
+      } catch (e) { /* 换下一个源 */ }
+    }
+    if (wDesc) wDesc.textContent = "定位失败，请手动搜索城市";
+    if (wCard) wCard.classList.remove("loading");
+  }
+  async function wSearchCity(name) {
+    if (!name.trim()) return;
+    try {
+      const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(name.trim()) + "&count=5&language=zh");
+      const j = await r.json();
+      const list = (j && j.results) || [];
+      if (!list.length) { wSuggest.innerHTML = '<button disabled style="opacity:.6">未找到该城市</button>'; wSuggest.classList.add("open"); return; }
+      wSuggest.innerHTML = list.map(c =>
+        '<button data-lat="' + c.latitude + '" data-lon="' + c.longitude + '" data-name="' +
+        (c.name + " · " + (c.admin1 || c.country || "")) + '">' + c.name +
+        '<span class="s-sub">' + (c.admin1 || c.country || "") + '</span></button>'
+      ).join("");
+      wSuggest.classList.add("open");
+      wSuggest.querySelectorAll("button[data-lat]").forEach(b => {
+        b.onclick = () => {
+          wSuggest.classList.remove("open");
+          wSearch.value = "";
+          wFetchWeather(b.dataset.lat, b.dataset.lon, b.dataset.name);
+        };
+      });
+    } catch (e) {
+      wSuggest.classList.remove("open");
+    }
+  }
+
+  if (wCard) {
+    // 初始化
+    wCard.classList.add("loading");
+    wSizeCanvas(); wInitParticles(); wStartFx();
+    // 鼠标跟随高光 + 悬停加速粒子
+    wCard.addEventListener("mousemove", (e) => {
+      const r = wCard.getBoundingClientRect();
+      wCard.style.setProperty("--mx", ((e.clientX - r.left) / r.width * 100) + "%");
+      wCard.style.setProperty("--my", ((e.clientY - r.top) / r.height * 100) + "%");
+    });
+    wCard.addEventListener("mouseenter", () => { wHover = true; });
+    wCard.addEventListener("mouseleave", () => { wHover = false; });
+    // 城市搜索（输入即搜，防抖）
+    let wTimer = null;
+    wSearch.addEventListener("input", () => {
+      clearTimeout(wTimer);
+      const v = wSearch.value.trim();
+      if (!v) { wSuggest.classList.remove("open"); return; }
+      wTimer = setTimeout(() => wSearchCity(v), 350);
+    });
+    wSearch.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { clearTimeout(wTimer); wSearchCity(wSearch.value.trim()); }
+      if (e.key === "Escape") wSuggest.classList.remove("open");
+    });
+    document.addEventListener("click", (e) => {
+      if (!wSuggest.contains(e.target) && e.target !== wSearch) wSuggest.classList.remove("open");
+    });
+    wLocate.addEventListener("click", wDoLocate);
+    wRefresh.addEventListener("click", () => {
+      const s = settings.weather;
+      if (s && s.lat != null) wFetchWeather(s.lat, s.lon, s.city);
+      else wDoLocate();
+    });
+    // 首次加载：优先用上次保存的城市，否则 IP 定位
+    if (settings.weather && settings.weather.lat != null) {
+      wFetchWeather(settings.weather.lat, settings.weather.lon, settings.weather.city);
+    } else {
+      wDoLocate();
+    }
+    window.addEventListener("resize", () => { wSizeCanvas(); wInitParticles(); });
+  }
 
   // ===== 壁纸应用（双图层交叉淡入，切换更自然）=====
   const wallpaperEl = document.getElementById("wallpaper");

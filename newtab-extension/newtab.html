@@ -9,6 +9,7 @@
     /* 玻璃卡片可调参数：--glass-alpha = 底色不透明度(0~0.5)，--glass-blur = 背景模糊(0~30px) */
     --glass-alpha: 0.16;
     --glass-blur: 16px;
+    --weather-alpha: 0.10;      // 天气卡片专属淡化程度（比通用更通透）
     --glass-bg: rgba(255, 255, 255, var(--glass-alpha));
     --glass-border: rgba(255, 255, 255, 0.28);
     --text: #fff;
@@ -699,110 +700,116 @@
     animation-delay: calc(.5s + var(--i, 0) * 0.06s);
   }
 
-  /* ===== 动态天气卡片 ===== */
+  /* ===== 动态天气卡片（固定在左下角，不占居中布局流） ===== */
   .weather-card {
-    position: relative; overflow: hidden;
-    width: min(340px, 90vw); margin-top: 16px; padding: 16px 18px 14px;
-    border-radius: 18px;
-    background: var(--glass-bg);
-    backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--shadow);
+    position: fixed; left: 20px; bottom: 20px; z-index: 4;
+    overflow: hidden;
+    width: min(250px, 62vw); margin-top: 0; padding: 12px 13px 11px;
+    border-radius: 15px;
+    background: rgba(255, 255, 255, var(--weather-alpha));   /* 天气卡片淡化程度（独立可调） */
+    backdrop-filter: blur(calc(var(--glass-blur) * 0.8));
+    -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 0.8));
+    border: 1px solid rgba(255, 255, 255, calc(var(--glass-border-alpha, .28) * 0.9));
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .3);
     color: var(--text);
     transition: transform .3s cubic-bezier(.2,.9,.3,1.1), box-shadow .3s ease, border-color .3s ease;
   }
   .weather-card:hover {
-    transform: translateY(-4px) scale(1.015);
+    transform: translateY(-4px) scale(1.02);
     border-color: rgba(160,200,255,.5);
-    box-shadow: 0 16px 44px rgba(0,0,0,.42), 0 0 28px rgba(159,233,255,.18);
+    box-shadow: 0 14px 36px rgba(0,0,0,.4), 0 0 22px rgba(159,233,255,.16);
   }
   /* 鼠标跟随的高光（--mx/--my 由 JS 更新） */
   .weather-card::before {
     content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-    background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%),
-      rgba(255,255,255,.20), transparent 62%);
+    background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 0%),
+      rgba(255,255,255,.16), transparent 62%);
     opacity: 0; transition: opacity .3s ease;
   }
   .weather-card:hover::before { opacity: 1; }
   /* 天气粒子画布层 */
   .weather-fx {
     position: absolute; inset: 0; width: 100%; height: 100%;
-    pointer-events: none; opacity: .85;
+    pointer-events: none; opacity: .8;
   }
-  .weather-main { position: relative; z-index: 2; display: flex; align-items: center; gap: 14px; }
+  .weather-main { position: relative; z-index: 2; display: flex; align-items: center; gap: 10px; }
   .weather-icon {
-    position: relative; width: 54px; height: 54px; flex: none;
+    position: relative; width: 40px; height: 40px; flex: none;
     display: flex; align-items: center; justify-content: center;
-    font-size: 34px; line-height: 1;
+    font-size: 26px; line-height: 1;
     filter: drop-shadow(0 3px 10px rgba(0,0,0,.4));
     transition: transform .4s cubic-bezier(.2,.9,.3,1.4);
   }
   .weather-card:hover .weather-icon { transform: scale(1.12) rotate(-6deg); }
   /* 晴天：光芒旋转 */
   .weather-icon.sun::after {
-    content: ""; position: absolute; inset: -8px; border-radius: 50%;
+    content: ""; position: absolute; inset: -7px; border-radius: 50%;
     background: conic-gradient(from 0deg, transparent 0deg, rgba(255,220,120,.55) 40deg, transparent 80deg, transparent 360deg);
     animation: sunSpin 6s linear infinite; z-index: -1;
   }
   @keyframes sunSpin { to { transform: rotate(360deg); } }
   .weather-now { position: relative; z-index: 2; min-width: 0; }
   .weather-temp {
-    font-size: 34px; font-weight: 800; line-height: 1.05; letter-spacing: -1px;
+    font-size: 26px; font-weight: 800; line-height: 1.05; letter-spacing: -.5px;
     background: linear-gradient(180deg, #fff 0%, #bfe0ff 100%);
     -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent; color: transparent;
     filter: drop-shadow(0 2px 8px rgba(0,0,0,.35));
   }
-  .weather-desc { font-size: 12.5px; opacity: .88; margin-top: 3px; }
+  .weather-desc { font-size: 11.5px; opacity: .88; margin-top: 2px; }
   .weather-meta {
-    position: relative; z-index: 2; margin-top: 10px; font-size: 12px; opacity: .8;
-    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    position: relative; z-index: 2; margin-top: 7px; font-size: 11px; opacity: .78;
+    display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
   }
   .weather-city { font-weight: 600; }
   .weather-dot { opacity: .5; }
-  /* 未来 24 小时（简化 4 个时点） */
+  /* 未来 3 天预报 */
   .weather-hours {
-    position: relative; z-index: 2; margin-top: 11px;
-    display: flex; justify-content: space-between; gap: 4px;
+    position: relative; z-index: 2; margin-top: 8px;
+    display: flex; justify-content: space-between; gap: 3px;
   }
   .weather-hour {
-    flex: 1; text-align: center; padding: 6px 2px; border-radius: 10px;
-    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.10);
+    flex: 1; text-align: center; padding: 4px 1px; border-radius: 8px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.10);
     transition: transform .2s ease, background .2s ease, border-color .2s ease;
   }
   .weather-hour:hover { transform: translateY(-3px); background: rgba(255,255,255,.16); border-color: rgba(159,233,255,.4); }
-  .weather-hour .h-time { font-size: 10.5px; opacity: .75; }
-  .weather-hour .h-icon { font-size: 15px; margin: 3px 0 2px; }
-  .weather-hour .h-temp { font-size: 11.5px; font-weight: 600; }
+  .weather-hour .h-time { font-size: 9.5px; opacity: .75; }
+  .weather-hour .h-icon { font-size: 13px; margin: 2px 0 1px; }
+  .weather-hour .h-temp { font-size: 10.5px; font-weight: 600; }
   /* 操作区 */
-  .weather-actions { position: relative; z-index: 3; margin-top: 12px; display: flex; gap: 6px; }
+  .weather-actions { position: relative; z-index: 3; margin-top: 9px; display: flex; gap: 5px; }
   .weather-actions input {
-    flex: 1; min-width: 0; padding: 7px 11px; font-size: 12.5px; color: var(--text);
-    background: rgba(255,255,255,.10); border: 1px solid var(--glass-border);
-    border-radius: 10px; outline: none; transition: border-color .2s ease, background .2s ease;
+    flex: 1; min-width: 0; padding: 5px 9px; font-size: 11.5px; color: var(--text);
+    background: rgba(255,255,255,.08); border: 1px solid var(--glass-border);
+    border-radius: 8px; outline: none; transition: border-color .2s ease, background .2s ease;
   }
-  .weather-actions input::placeholder { color: rgba(255,255,255,.55); }
-  .weather-actions input:focus { border-color: rgba(159,233,255,.6); background: rgba(255,255,255,.16); }
-  .weather-actions .btn { padding: 7px 10px; font-size: 13px; border-radius: 10px; }
+  .weather-actions input::placeholder { color: rgba(255,255,255,.5); }
+  .weather-actions input:focus { border-color: rgba(159,233,255,.6); background: rgba(255,255,255,.14); }
+  .weather-actions .btn { padding: 5px 8px; font-size: 12px; border-radius: 8px; }
   /* 城市搜索建议 */
   .weather-suggest {
-    position: absolute; left: 18px; right: 18px; bottom: 58px; z-index: 5;
-    display: none; max-height: 150px; overflow-y: auto;
-    background: rgba(20,20,28,.92); border: 1px solid var(--glass-border);
-    border-radius: 12px; box-shadow: var(--shadow); padding: 5px;
+    position: absolute; left: 13px; right: 13px; bottom: 44px; z-index: 5;
+    display: none; max-height: 140px; overflow-y: auto;
+    background: rgba(20,20,28,.94); border: 1px solid var(--glass-border);
+    border-radius: 10px; box-shadow: var(--shadow); padding: 4px;
   }
   .weather-suggest.open { display: block; animation: menuIn .2s cubic-bezier(.2,.9,.3,1.1); }
   .weather-suggest button {
-    display: block; width: 100%; text-align: left; padding: 8px 10px; font-size: 12.5px;
-    color: var(--text); background: transparent; border: none; border-radius: 8px; cursor: pointer;
+    display: block; width: 100%; text-align: left; padding: 6px 9px; font-size: 11.5px;
+    color: var(--text); background: transparent; border: none; border-radius: 7px; cursor: pointer;
   }
   .weather-suggest button:hover { background: rgba(255,255,255,.16); }
-  .weather-suggest .s-sub { font-size: 11px; opacity: .65; margin-left: 6px; }
+  .weather-suggest .s-sub { font-size: 10px; opacity: .65; margin-left: 5px; }
   .weather-card.loading .weather-desc { opacity: .6; }
   /* 数字滚动高亮 */
   .weather-temp.bump { animation: tempBump .45s cubic-bezier(.2,.9,.3,1.3); }
   @keyframes tempBump { 0% { transform: scale(1); } 45% { transform: scale(1.12); } 100% { transform: scale(1); } }
-  .weather-card.enter { animation: fadeUp .9s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: .52s; }
+  /* 小屏时收起为仅图标，避免遮挡 */
+  @media (max-width: 560px) {
+    .weather-card { width: auto; right: auto; padding: 10px 11px; }
+    .weather-hours, .weather-actions { display: none; }
+  }
   /* ===== 背景氛围光斑 ===== */
   #ambient { position: fixed; inset: 0; z-index: 1; pointer-events: none; overflow: hidden; }
   #ambient .blob {
@@ -881,29 +888,6 @@
     <div id="clock" class="enter"><span id="ch">00</span><span class="colon">:</span><span id="cm">00</span><span class="colon">:</span><span id="cs">00</span></div>
     <div id="date" class="enter"></div>
 
-    <!-- ===== 动态天气卡片 ===== -->
-    <div class="weather-card enter" id="weather-card">
-      <canvas class="weather-fx" id="weather-fx" aria-hidden="true"></canvas>
-      <div class="weather-main">
-        <div class="weather-icon" id="weather-icon" aria-hidden="true"></div>
-        <div class="weather-now">
-          <div class="weather-temp" id="weather-temp">--°</div>
-          <div class="weather-desc" id="weather-desc">正在获取天气…</div>
-        </div>
-      </div>
-      <div class="weather-meta">
-        <span class="weather-city" id="weather-city">定位中…</span>
-        <span class="weather-dot">·</span>
-        <span id="weather-range">-- / --°</span>
-      </div>
-      <div class="weather-hours" id="weather-hours"></div>
-      <div class="weather-actions">
-        <input id="weather-search" type="text" placeholder="搜索城市，如 上海" maxlength="20" />
-        <button class="btn" id="weather-locate" title="重新定位">📍</button>
-        <button class="btn" id="weather-refresh" title="刷新">↻</button>
-      </div>
-      <div class="weather-suggest" id="weather-suggest"></div>
-    </div>
     <div id="quote" class="enter">
       <span class="q-text"></span><span class="q-author"></span>
       <button class="q-refresh" id="quote-refresh" title="换一句" aria-label="换一句">↻</button>
@@ -1060,13 +1044,14 @@
       <label>卡片玻璃效果</label>
       <div class="slider-row"><span>淡化</span><input type="range" id="glass-alpha-slider" min="0" max="0.5" step="0.01" /></div>
       <div class="slider-row"><span>模糊</span><input type="range" id="glass-blur-slider" min="0" max="30" step="1" /></div>
+      <div class="slider-row"><span>天气</span><input type="range" id="weather-alpha-slider" min="0" max="0.4" step="0.01" /></div>
       <div class="glass-presets" id="glass-presets">
         <button class="btn" data-a="0.06" data-b="6">通透</button>
         <button class="btn" data-a="0.16" data-b="16">标准</button>
         <button class="btn" data-a="0.3" data-b="22">厚实</button>
         <button class="btn" data-a="0.42" data-b="28">磨砂</button>
       </div>
-      <div class="hint" style="margin-top:6px">淡化程度决定卡片底色的通透感（越小越透明），模糊决定背景虚化强度。天气卡片、快捷链接、设置面板与音乐面板会同步生效。</div>
+      <div class="hint" style="margin-top:6px">淡化程度决定卡片底色的通透感（越小越透明），模糊决定背景虚化强度。「天气」项单独调节左下角天气卡片的淡化程度。天气卡片、快捷链接、设置面板与音乐面板会同步生效。</div>
     </section>
 
     <section>
@@ -1095,5 +1080,29 @@
   </div>
 
 <script src="newtab.js"></script>
+
+<!-- ===== 动态天气卡片（固定左下角，独立于居中布局） ===== -->
+<div class="weather-card enter" id="weather-card">
+  <canvas class="weather-fx" id="weather-fx" aria-hidden="true"></canvas>
+  <div class="weather-main">
+    <div class="weather-icon" id="weather-icon" aria-hidden="true"></div>
+    <div class="weather-now">
+      <div class="weather-temp" id="weather-temp">--°</div>
+      <div class="weather-desc" id="weather-desc">正在获取天气…</div>
+    </div>
+  </div>
+  <div class="weather-meta">
+    <span class="weather-city" id="weather-city">定位中…</span>
+    <span class="weather-dot">·</span>
+    <span id="weather-range">-- / --°</span>
+  </div>
+  <div class="weather-hours" id="weather-hours"></div>
+  <div class="weather-actions">
+    <input id="weather-search" type="text" placeholder="搜索城市" maxlength="20" />
+    <button class="btn" id="weather-locate" title="重新定位">📍</button>
+    <button class="btn" id="weather-refresh" title="刷新">↻</button>
+  </div>
+  <div class="weather-suggest" id="weather-suggest"></div>
+</div>
 </body>
 </html>

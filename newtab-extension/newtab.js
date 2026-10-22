@@ -28,6 +28,7 @@
     weather: null,              // 天气卡片上次定位的城市 {lat, lon, city}
     glassAlpha: 0.16,           // 卡片底色不透明度（淡化程度）
     glassBlur: 16,              // 卡片背景模糊(px)
+    weatherAlpha: 0.10,         // 天气卡片专属淡化程度
     wallpaper: PRESETS[0],
     isGradient: true,
     wallpaperType: "gradient",
@@ -1221,11 +1222,13 @@
   // ===== 卡片玻璃效果：淡化程度 / 模糊程度 =====
   const glassAlphaSlider = document.getElementById("glass-alpha-slider");
   const glassBlurSlider = document.getElementById("glass-blur-slider");
+  const weatherAlphaSlider = document.getElementById("weather-alpha-slider");
   const glassPresets = document.getElementById("glass-presets");
   function applyGlass() {
     const root = document.documentElement;
     root.style.setProperty("--glass-alpha", settings.glassAlpha);
     root.style.setProperty("--glass-blur", settings.glassBlur + "px");
+    root.style.setProperty("--weather-alpha", settings.weatherAlpha);
     // 同步预设按钮选中态
     if (glassPresets) {
       glassPresets.querySelectorAll(".btn").forEach(b => {
@@ -1239,6 +1242,13 @@
     glassAlphaSlider.value = settings.glassAlpha;
     glassAlphaSlider.addEventListener("input", () => {
       settings.glassAlpha = parseFloat(glassAlphaSlider.value);
+      applyGlass(); save();
+    });
+  }
+  if (weatherAlphaSlider) {
+    weatherAlphaSlider.value = settings.weatherAlpha;
+    weatherAlphaSlider.addEventListener("input", () => {
+      settings.weatherAlpha = parseFloat(weatherAlphaSlider.value);
       applyGlass(); save();
     });
   }

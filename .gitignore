@@ -10,3 +10,11 @@ proxy.log
 Thumbs.db
 *.swp
 *.err
+
+# 临时测试文件
+_t.js
+_s.js
+_t.js
+
+# 分发打包产物
+*.zip

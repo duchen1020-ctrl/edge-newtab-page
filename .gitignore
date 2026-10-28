@@ -9,3 +9,4 @@ proxy.log
 .DS_Store
 Thumbs.db
 *.swp
+*.err

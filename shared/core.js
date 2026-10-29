@@ -122,7 +122,7 @@ const parseMedia = HOST.parseMedia.bind(HOST);
   // 天气卡片元素：DOM 可能尚未就绪（脚本位置可调整），故延迟绑定
   let wCard = null, wIcon = null, wTemp = null, wDesc = null, wCity = null,
       wRange = null, wHours = null, wSearch = null, wSuggest = null,
-      wLocate = null, wRefresh = null, wFx = null, wFxCtx = null;
+      wLocate = null, wRefresh = null, wFx = null, wFxCtx = null, wSrc = null;
   function wBindEls() {
     wCard = document.getElementById("weather-card");
     wIcon = document.getElementById("weather-icon");
@@ -136,6 +136,7 @@ const parseMedia = HOST.parseMedia.bind(HOST);
     wLocate = document.getElementById("weather-locate");
     wRefresh = document.getElementById("weather-refresh");
     wFx = document.getElementById("weather-fx");
+    wSrc = document.getElementById("weather-src");
     wFxCtx = wFx ? wFx.getContext("2d") : null;
     return !!wCard;
   }
@@ -246,6 +247,16 @@ const parseMedia = HOST.parseMedia.bind(HOST);
     wIcon.textContent = info.i;
     wDesc.textContent = info.t;
     wCity.textContent = data.cityName || "当前位置";
+    // 定位来源徽标：GPS 精确 vs IP 估算
+    if (wSrc) {
+      const src = data.source || settings.weatherSource;
+      if (src) {
+        wSrc.textContent = src === "geo" ? "GPS" : "IP";
+        wSrc.className = "weather-src" + (src === "geo" ? "" : " ip");
+        wSrc.title = src === "geo" ? "浏览器精确定位" : "基于 IP 的城市级估算，可点击城市名切换";
+        wSrc.hidden = false;
+      } else wSrc.hidden = true;
+    }
     const tmax = Math.round(daily.temperature_2m_max[0]);
     const tmin = Math.round(daily.temperature_2m_min[0]);
     wRange.textContent = tmin + "° / " + tmax + "°";
@@ -267,7 +278,7 @@ const parseMedia = HOST.parseMedia.bind(HOST);
     ).join("");
     wSetFx(wmoFx(cw.weathercode));
   }
-  async function wFetchWeather(lat, lon, cityName) {
+  async function wFetchWeather(lat, lon, cityName, source) {
     try {
       const url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon +
         "&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=3";
@@ -277,8 +288,9 @@ const parseMedia = HOST.parseMedia.bind(HOST);
       ]);
       const j = await r.json();
       if (!j || !j.current_weather) throw new Error("bad data");
-      wRender(Object.assign({}, j, { cityName: cityName }));
-      settings.weather = { lat: lat, lon: lon, city: cityName };
+      const src = source || settings.weatherSource || "ip";
+      wRender(Object.assign({}, j, { cityName: cityName, source: src }));
+      settings.weather = { lat: lat, lon: lon, city: cityName, source: src };
       save();
       if (wCard) wCard.classList.remove("loading");
       return true;
@@ -289,9 +301,104 @@ const parseMedia = HOST.parseMedia.bind(HOST);
     }
   }
   let wLocateRetries = 0;
+  let wUseGeo = false;      // 是否启用浏览器精确定位（首次加载不主动弹权限，用户点📍后才启用）
+  let wGeoDenied = false;   // 用户是否拒绝过定位授权（拒绝后不再重复弹窗）
+
+  // BigDataCloud 逆地理编码会混用繁体（如「東城區」），这里做常见地名繁→简转换
+  const W_T2S = {
+    "區": "区", "縣": "县", "黃": "黄", "錦": "锦", "東": "东", "島": "岛",
+    "環": "环", "瀋": "沈", "陰": "阴", "陽": "阳", "寧": "宁", "廣": "广",
+    "門": "门", "關": "关", "華": "华", "萬": "万", "興": "兴", "豐": "丰",
+    "龍": "龙", "鳳": "凤", "長": "长", "樂": "乐", "馬": "马", "軍": "军",
+    "雲": "云", "麗": "丽", "蘇": "苏", "貴": "贵", "慶": "庆", "陝": "陕",
+    "遼": "辽", "吉": "吉", "黑": "黑", "內": "内", "烏": "乌", "齊": "齐",
+    "濟": "济", "棗": "枣", "無": "无", "寧": "宁", "溫": "温", "營": "营",
+    "衛": "卫", "鹿": "鹿", "鳳": "凤", "鶴": "鹤", "鹽": "盐", "鎮": "镇",
+    "縣": "县", "邊": "边", "達": "达", "遷": "迁", "連": "连", "運": "运",
+    "遼": "辽", "鄭": "郑", "鄒": "邹", "鄧": "邓", "鄴": "邺", "蘭": "兰",
+    "蘇": "苏", "蟲": "虫", "衆": "众", "衆": "众", "廣": "广", "愛": "爱",
+    "樂": "乐", "鄭": "郑", "陝": "陕", "隴": "陇", "靑": "青", "靚": "靓"
+  };
+  function wToSimplified(s) {
+    if (!s) return s;
+    let out = "";
+    for (const ch of s) out += (W_T2S[ch] || ch);
+    return out;
+  }
+  // 逆地理编码：坐标 → 中文地名（免 key，可精确到区级）
+  async function wReverseGeocode(lat, lon) {
+    try {
+      const r = await Promise.race([
+        fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=" + lat +
+          "&longitude=" + lon + "&localityLanguage=zh"),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000))
+      ]);
+      const j = await r.json();
+      const city = wToSimplified(j.city || j.locality || j.principalSubdivision);
+      if (!city) return null;
+      // 收集 city / 区 / 省，去重后拼接
+      const parts = [j.city, j.locality, j.principalSubdivision].map(wToSimplified).filter(Boolean);
+      const uniq = [];
+      parts.forEach(p => { if (uniq.indexOf(p) < 0) uniq.push(p); });
+      return { label: uniq.join(" · "), city: city };
+    } catch (e) { return null; }
+  }
+  // 浏览器 Geolocation：真实 GPS/网络定位，最准（需用户授权）
+  function wBrowserGeo() {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) { resolve(null); return; }
+      const timer = setTimeout(() => resolve(null), 10000);   // 用户不授权则超时放弃
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          clearTimeout(timer);
+          resolve({ lat: p.coords.latitude, lon: p.coords.longitude,
+                    accuracy: p.coords.accuracy, source: "geo" });
+        },
+        (err) => {
+          clearTimeout(timer);
+          // code 1 = PERMISSION_DENIED（用户拒绝）→ 记住，不再重复弹窗
+          if (err && err.code === 1) wGeoDenied = true;
+          resolve(null);
+        },
+        { timeout: 9000, maximumAge: 300000, enableHighAccuracy: false }
+      );
+    });
+  }
   async function wDoLocate() {
     if (wCard) wCard.classList.add("loading");
     if (wDesc) wDesc.textContent = wLocateRetries > 0 ? ("定位重试中（" + wLocateRetries + "/2）…") : "正在定位…";
+
+    // ===== 第 1 层：浏览器 Geolocation（最准，真实 GPS/网络定位）=====
+    // 仅在用户主动点 📍 时启用（wUseGeo），避免首次打开就弹权限框打扰
+    if (wUseGeo && wLocateRetries === 0 && navigator.geolocation) {
+      if (wDesc) wDesc.textContent = "请求定位权限…";
+      const g = await wBrowserGeo();
+      if (g) {
+        const rev = await wReverseGeocode(g.lat, g.lon);
+        let name = rev ? rev.label : "当前位置";
+        // 同样用 Open-Meteo 的简体城市名 + 逆地理的区级信息
+        if (rev && rev.city) {
+          try {
+            const gr = await fetch("https://geocoding-api.open-meteo.com/v1/search?name=" +
+              encodeURIComponent(rev.city) + "&count=5&language=zh");
+            const gj = await gr.json();
+            const cands = (gj && gj.results) || [];
+            if (cands.length) {
+              const best = cands.slice().sort((a, b) => (b.population || 0) - (a.population || 0))[0];
+              const district = rev.label.split(" · ").filter(x => x && x !== best.name)[0] || "";
+              name = [best.name, best.admin1 || best.country || "", district].filter(Boolean).join(" · ");
+            }
+          } catch (e) { /* 保持逆地理结果 */ }
+        }
+        const ok = await wFetchWeather(g.lat, g.lon, name, "geo");
+        if (ok) {
+          wLocateRetries = 0;
+          return;
+        }
+      }
+    }
+
+    // ===== 第 2 层：IP 定位（自动，无需授权；精度取决于 IP 归属地）=====
     // 依次尝试多个 IP 定位源（主源用 https，避免混合内容被浏览器拦截）
     const sources = [
       { url: "https://ipwho.is/",
@@ -318,24 +425,37 @@ const parseMedia = HOST.parseMedia.bind(HOST);
         const j = await r.json();
         const p = s.pick(j);
         if (!p) continue;
-        const label = [p.city, p.region, p.country].filter(Boolean).join(" · ");
-        // IP 归属点通常落在运营商机房，坐标不准 → 用城市名反查城市中心坐标
-        let lat = p.lat, lon = p.lon, name = label;
-        try {
-          const g = await fetchWithTimeout(
-            "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(p.city || "") +
-            "&count=5&language=zh", 8000);
-          const gj = await g.json();
-          const cands = (gj && gj.results) || [];
-          if (cands.length) {
-            // 优先取人口最多的同名城市（避免选到同名小地方）
-            const best = cands.slice().sort((a, b) => (b.population || 0) - (a.population || 0))[0];
-            lat = best.latitude; lon = best.longitude;
-            name = [best.name, best.admin1 || best.country].filter(Boolean).join(" · ");
-          }
-        } catch (e) { /* 反查失败则用 IP 原始坐标 */ }
-        const ok = await wFetchWeather(lat, lon, name);
-        if (ok) { wLocateRetries = 0; return; }   // 定位+天气都成功
+        // ① 逆地理编码：IP 机房点 → 实际地名（可到区级，含繁体需转简）
+        const rev = await wReverseGeocode(p.lat, p.lon);
+        // ② 用城市名正向反查：拿到 Open-Meteo 的标准简体地名与城市中心坐标
+        let lat = p.lat, lon = p.lon;
+        let name = rev ? rev.label : [p.city, p.region, p.country].filter(Boolean).join(" · ");
+        const queryName = (rev && rev.city) || p.city;
+        if (queryName) {
+          try {
+            const g = await fetchWithTimeout(
+              "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(queryName) +
+              "&count=5&language=zh", 8000);
+            const gj = await g.json();
+            const cands = (gj && gj.results) || [];
+            if (cands.length) {
+              // 优先取人口最多的同名城市（避免选到同名小地方）
+              const best = cands.slice().sort((a, b) => (b.population || 0) - (a.population || 0))[0];
+              lat = best.latitude; lon = best.longitude;
+              // 显示名：Open-Meteo 简体城市名 + 省级 + 逆地理的区级信息
+              const province = best.admin1 || best.country || "";
+              const district = rev && rev.label ? rev.label.split(" · ").filter(x => x && x !== best.name)[0] : "";
+              name = [best.name, province, district].filter(Boolean).join(" · ");
+            }
+          } catch (e) { /* 反查失败则用 IP 原始坐标 */ }
+        }
+        const ok = await wFetchWeather(lat, lon, name, "ip");
+        if (ok) {
+          wLocateRetries = 0;
+          settings.weatherSource = "ip";
+          save();
+          return;
+        }
         // 定位到了但取天气失败 → 继续试下一个源
         continue;
       } catch (e) { /* 换下一个源 */ }
@@ -368,7 +488,8 @@ const parseMedia = HOST.parseMedia.bind(HOST);
         b.onclick = () => {
           wSuggest.classList.remove("open");
           wSearch.value = "";
-          wFetchWeather(b.dataset.lat, b.dataset.lon, b.dataset.name);
+          settings.weatherSource = "manual";   // 手动选择的城市，优先级最高
+          wFetchWeather(b.dataset.lat, b.dataset.lon, b.dataset.name, "manual");
         };
       });
     } catch (e) {
@@ -404,15 +525,35 @@ const parseMedia = HOST.parseMedia.bind(HOST);
     document.addEventListener("click", (e) => {
       if (!wSuggest.contains(e.target) && e.target !== wSearch) wSuggest.classList.remove("open");
     });
-    wLocate.addEventListener("click", wDoLocate);
+    wLocate.addEventListener("click", () => {
+      // 用户主动点定位 → 启用浏览器精确定位（会弹权限框）
+      // 若之前已拒绝过（geoDenied），则不再重复弹，直接用 IP 定位
+      if (!wGeoDenied) wUseGeo = true;
+      wDoLocate();
+    });
+    // 点击城市名 → 聚焦搜索框，方便手动纠正定位
+    if (wCity) {
+      wCity.addEventListener("click", () => {
+        wSearch.focus();
+        wSearch.select();
+        wSearch.placeholder = "输入城市名切换（例：杭州）";
+      });
+    }
     wRefresh.addEventListener("click", () => {
       const s = settings.weather;
-      if (s && s.lat != null) wFetchWeather(s.lat, s.lon, s.city);
-      else wDoLocate();
+      // 手动选过的城市 → 刷新时用该城市；否则重新定位
+      if (s && s.lat != null && (s.source === "manual" || s.source === "geo")) {
+        wFetchWeather(s.lat, s.lon, s.city, s.source);
+      } else if (s && s.lat != null) {
+        wFetchWeather(s.lat, s.lon, s.city, "ip");
+      } else {
+        wDoLocate();
+      }
     });
     // 首次加载：优先用上次保存的城市，否则 IP 定位
     if (settings.weather && settings.weather.lat != null) {
-      wFetchWeather(settings.weather.lat, settings.weather.lon, settings.weather.city);
+      wFetchWeather(settings.weather.lat, settings.weather.lon, settings.weather.city,
+        settings.weather.source || "ip");
     } else {
       wDoLocate();
     }

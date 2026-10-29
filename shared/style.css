@@ -754,7 +754,23 @@
     position: relative; z-index: 2; margin-top: 7px; font-size: 11px; opacity: .78;
     display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
   }
-  .weather-city { font-weight: 600; }
+  .weather-city {
+    font-weight: 600;
+    background: none; border: none; padding: 0; margin: 0;
+    color: inherit; font-size: inherit; font-family: inherit;
+    cursor: pointer; text-align: left;
+    border-bottom: 1px dashed rgba(255,255,255,.35);
+    transition: color .18s ease, border-color .18s ease;
+  }
+  .weather-city:hover { color: #9fe9ff; border-bottom-color: #9fe9ff; }
+  .weather-city:active { transform: translateY(1px); }
+  /* 定位来源徽标 */
+  .weather-src {
+    display: inline-block; font-size: 9px; line-height: 1; padding: 2px 4px;
+    border-radius: 4px; margin-left: 2px; vertical-align: 1px;
+    background: rgba(159,233,255,.18); color: #9fe9ff; border: 1px solid rgba(159,233,255,.3);
+  }
+  .weather-src.ip { background: rgba(255,220,120,.16); color: #ffd98c; border-color: rgba(255,220,120,.3); }
   .weather-dot { opacity: .5; }
   /* 未来 3 天预报 */
   .weather-hours {

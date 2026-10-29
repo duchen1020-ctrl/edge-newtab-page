@@ -308,22 +308,99 @@ const parseMedia = HOST.parseMedia.bind(HOST);
   const W_T2S = {
     "區": "区", "縣": "县", "黃": "黄", "錦": "锦", "東": "东", "島": "岛",
     "環": "环", "瀋": "沈", "陰": "阴", "陽": "阳", "寧": "宁", "廣": "广",
-    "門": "门", "關": "关", "華": "华", "萬": "万", "興": "兴", "豐": "丰",
-    "龍": "龙", "鳳": "凤", "長": "长", "樂": "乐", "馬": "马", "軍": "军",
-    "雲": "云", "麗": "丽", "蘇": "苏", "貴": "贵", "慶": "庆", "陝": "陕",
-    "遼": "辽", "吉": "吉", "黑": "黑", "內": "内", "烏": "乌", "齊": "齐",
-    "濟": "济", "棗": "枣", "無": "无", "寧": "宁", "溫": "温", "營": "营",
-    "衛": "卫", "鹿": "鹿", "鳳": "凤", "鶴": "鹤", "鹽": "盐", "鎮": "镇",
-    "縣": "县", "邊": "边", "達": "达", "遷": "迁", "連": "连", "運": "运",
-    "遼": "辽", "鄭": "郑", "鄒": "邹", "鄧": "邓", "鄴": "邺", "蘭": "兰",
-    "蘇": "苏", "蟲": "虫", "衆": "众", "衆": "众", "廣": "广", "愛": "爱",
-    "樂": "乐", "鄭": "郑", "陝": "陕", "隴": "陇", "靑": "青", "靚": "靓"
+    "樓": "楼", "門": "门", "關": "关", "華": "华", "萬": "万", "興": "兴",
+    "豐": "丰", "龍": "龙", "鳳": "凤", "長": "长", "樂": "乐", "馬": "马",
+    "軍": "军", "雲": "云", "麗": "丽", "蘇": "苏", "貴": "贵", "慶": "庆",
+    "陝": "陕", "遼": "辽", "內": "内", "烏": "乌", "齊": "齐", "濟": "济",
+    "棗": "枣", "無": "无", "溫": "温", "營": "营", "衛": "卫", "鶴": "鹤",
+    "鹽": "盐", "鎮": "镇", "邊": "边", "達": "达", "遷": "迁", "連": "连",
+    "運": "运", "鄭": "郑", "鄒": "邹", "鄧": "邓", "鄴": "邺", "蘭": "兰",
+    "蟲": "虫", "衆": "众", "愛": "爱", "隴": "陇", "靑": "青", "靚": "靓",
+    "風": "风", "飛": "飞", "馬": "马", "驗": "验", "體": "体", "髮": "发",
+    "鬥": "斗", "鬧": "闹", "鬱": "郁", "麥": "麦", "黴": "霉", "齒": "齿",
+    "聽": "听", "讀": "读", "寫": "写", "萬": "万", "壓": "压", "壯": "壮",
+    "壽": "寿", "夢": "梦", "奧": "奥", "寶": "宝", "實": "实", "寧": "宁",
+    "對": "对", "將": "将", "尋": "寻", "導": "导", "屬": "属", "嶼": "屿",
+    "島": "岛", "幣": "币", "師": "师", "庫": "库", "廠": "厂", "廳": "厅",
+    "開": "开", "關": "关", "電": "电", "車": "车", "門": "门", "問": "问",
+    "間": "间", "陽": "阳", "陰": "阴", "隊": "队", "際": "际", "陸": "陆",
+    "難": "难", "雲": "云", "靜": "静", "韓": "韩", "頭": "头", "顏": "颜",
+    "願": "愿", "風": "风", "飛": "飞", "飯": "饭", "養": "养", "馬": "马"
   };
   function wToSimplified(s) {
     if (!s) return s;
     let out = "";
     for (const ch of s) out += (W_T2S[ch] || ch);
     return out;
+  }
+
+  // 组装最终显示的地名：城市名 · 省级 · 区级
+  // 逆地理编码返回的字段是「南京市 / 鼓楼区 / 江苏省」这类带「市/区」的全称，
+  // 与 geocoding 的「南京 / 江苏」并列会显得重复，这里统一去重。
+  function wBuildLabel(best, revLabel) {
+    const cityName = best.name || "";
+    let province = best.admin1 || best.country || "";
+    // 直辖市/省级单位：admin1 与城市名实质相同（「北京」vs「北京市」）则不重复显示
+    if (province && cityName && (province.indexOf(cityName) === 0 || cityName.indexOf(province) === 0)) {
+      province = "";
+    }
+    const parts = (revLabel || "").split(" · ").map(wToSimplified).filter(Boolean);
+    const district = parts.find(x =>
+      x !== cityName &&
+      x !== province &&
+      // 「南京市」这类在「南京」后加了后缀的，算重复
+      !(cityName && x.length === cityName.length + 1 && x.indexOf(cityName) === 0) &&
+      // 与省名重复则去掉
+      !(province && (province.indexOf(x) === 0 || x.indexOf(province) === 0))
+    ) || "";
+    return [cityName, province, district].filter(Boolean).join(" · ");
+  }
+
+  // 去掉行政区划后缀，用于城市检索（"北京市"→"北京"，"昆山市"→"昆山"）
+  function wStripSuffix(name) {
+    if (!name) return "";
+    return String(name)
+      .replace(/(特别行政区|自治州|地区|盟|自治县|省|市|区|县)$/u, "")
+      .trim();
+  }
+
+  // 城市检索：Open-Meteo 正向地理编码
+  // 关键点：
+  //  1) 必须剥掉「市/区/县」后缀 —— 搜「上海市」会命中美国伊利诺伊州的上海市
+  //  2) 必须过滤 country_code=CN —— 国外有大量同名城市
+  //  3) 按 population 降序 —— 避免选到同名小地方
+  //  4) 用省级信息二次校正 —— 避免「青岛」选到辽宁青岛而非山东青岛
+  async function wLookupCity(query, expectProvince) {
+    const q = wStripSuffix(query);
+    if (!q) return null;
+    try {
+      const r = await Promise.race([
+        fetch("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(q) +
+          "&count=10&language=zh"),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), 8000))
+      ]);
+      const j = await r.json();
+      let cands = (j && j.results) || [];
+      if (!cands.length) return null;
+      // 优先中国境内
+      const cn = cands.filter(c => c.country_code === "CN");
+      if (cn.length) cands = cn;
+      // 有省级期望时，优先同省
+      // 注意：省级名可能是「江苏省」，而候选的 admin1 也是「江苏省」；
+      //      也可能是「北京市」，候选 admin1 为「北京市」而 city 名为「北京」。
+      if (expectProvince) {
+        const same = cands.filter(c =>
+          c.admin1 === expectProvince ||
+          wStripSuffix(c.admin1 || "") === wStripSuffix(expectProvince) ||
+          (c.admin1 || "").indexOf(expectProvince) >= 0 ||
+          expectProvince.indexOf(c.admin1 || "") >= 0
+        );
+        if (same.length) cands = same;
+      }
+      // 人口最多的优先
+      const best = cands.slice().sort((a, b) => (b.population || 0) - (a.population || 0))[0];
+      return best;
+    } catch (e) { return null; }
   }
   // 逆地理编码：坐标 → 中文地名（免 key，可精确到区级）
   async function wReverseGeocode(lat, lon) {
@@ -340,7 +417,12 @@ const parseMedia = HOST.parseMedia.bind(HOST);
       const parts = [j.city, j.locality, j.principalSubdivision].map(wToSimplified).filter(Boolean);
       const uniq = [];
       parts.forEach(p => { if (uniq.indexOf(p) < 0) uniq.push(p); });
-      return { label: uniq.join(" · "), city: city };
+      return {
+        label: uniq.join(" · "),
+        city: city,
+        // 省级（逆地理返回的是本地化中文名，IP 源的 region 可能是 "JS"/"Jiangsu" 等无法直接匹配）
+        province: wToSimplified(j.principalSubdivision || "")
+      };
     } catch (e) { return null; }
   }
   // 浏览器 Geolocation：真实 GPS/网络定位，最准（需用户授权）
@@ -376,19 +458,12 @@ const parseMedia = HOST.parseMedia.bind(HOST);
       if (g) {
         const rev = await wReverseGeocode(g.lat, g.lon);
         let name = rev ? rev.label : "当前位置";
-        // 同样用 Open-Meteo 的简体城市名 + 逆地理的区级信息
+        // 同样用校正后的简体城市名 + 区级信息
         if (rev && rev.city) {
-          try {
-            const gr = await fetch("https://geocoding-api.open-meteo.com/v1/search?name=" +
-              encodeURIComponent(rev.city) + "&count=5&language=zh");
-            const gj = await gr.json();
-            const cands = (gj && gj.results) || [];
-            if (cands.length) {
-              const best = cands.slice().sort((a, b) => (b.population || 0) - (a.population || 0))[0];
-              const district = rev.label.split(" · ").filter(x => x && x !== best.name)[0] || "";
-              name = [best.name, best.admin1 || best.country || "", district].filter(Boolean).join(" · ");
-            }
-          } catch (e) { /* 保持逆地理结果 */ }
+          const best = await wLookupCity(rev.city);
+          if (best) {
+            name = wBuildLabel(best, rev.label);
+          }
         }
         const ok = await wFetchWeather(g.lat, g.lon, name, "geo");
         if (ok) {
@@ -427,27 +502,18 @@ const parseMedia = HOST.parseMedia.bind(HOST);
         if (!p) continue;
         // ① 逆地理编码：IP 机房点 → 实际地名（可到区级，含繁体需转简）
         const rev = await wReverseGeocode(p.lat, p.lon);
-        // ② 用城市名正向反查：拿到 Open-Meteo 的标准简体地名与城市中心坐标
+        // ② 城市检索：剥后缀 + 限定中国 + 按人口排序 + 省级校正
         let lat = p.lat, lon = p.lon;
         let name = rev ? rev.label : [p.city, p.region, p.country].filter(Boolean).join(" · ");
         const queryName = (rev && rev.city) || p.city;
+        // 省级期望值用逆地理的中文省名（IP 源的 region 可能是 "JS"/"Jiangsu" 等，匹配不上）
+        const expectProv = (rev && rev.province) || "";
         if (queryName) {
-          try {
-            const g = await fetchWithTimeout(
-              "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(queryName) +
-              "&count=5&language=zh", 8000);
-            const gj = await g.json();
-            const cands = (gj && gj.results) || [];
-            if (cands.length) {
-              // 优先取人口最多的同名城市（避免选到同名小地方）
-              const best = cands.slice().sort((a, b) => (b.population || 0) - (a.population || 0))[0];
-              lat = best.latitude; lon = best.longitude;
-              // 显示名：Open-Meteo 简体城市名 + 省级 + 逆地理的区级信息
-              const province = best.admin1 || best.country || "";
-              const district = rev && rev.label ? rev.label.split(" · ").filter(x => x && x !== best.name)[0] : "";
-              name = [best.name, province, district].filter(Boolean).join(" · ");
-            }
-          } catch (e) { /* 反查失败则用 IP 原始坐标 */ }
+          const best = await wLookupCity(queryName, expectProv);
+          if (best) {
+            lat = best.latitude; lon = best.longitude;
+            name = wBuildLabel(best, rev ? rev.label : "");
+          }
         }
         const ok = await wFetchWeather(lat, lon, name, "ip");
         if (ok) {
@@ -474,10 +540,20 @@ const parseMedia = HOST.parseMedia.bind(HOST);
   async function wSearchCity(name) {
     if (!name.trim()) return;
     try {
-      const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(name.trim()) + "&count=5&language=zh");
+      // 同样要剥后缀 + 限定中国 + 按人口排序（否则搜「上海市」会命中美国同名市）
+      const q = wStripSuffix(name.trim());
+      const r = await fetch("https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(q) + "&count=10&language=zh");
       const j = await r.json();
-      const list = (j && j.results) || [];
-      if (!list.length) { wSuggest.innerHTML = '<button disabled style="opacity:.6">未找到该城市</button>'; wSuggest.classList.add("open"); return; }
+      let list = (j && j.results) || [];
+      // 优先中国境内
+      const cn = list.filter(c => c.country_code === "CN");
+      if (cn.length) list = cn;
+      if (!list.length) {
+        wSuggest.innerHTML = '<button disabled style="opacity:.6">未找到该城市</button>';
+        wSuggest.classList.add("open"); return;
+      }
+      // 按人口降序，同人口时国内优先在前
+      list = list.slice().sort((a, b) => (b.population || 0) - (a.population || 0));
       wSuggest.innerHTML = list.map(c =>
         '<button data-lat="' + c.latitude + '" data-lon="' + c.longitude + '" data-name="' +
         (c.name + " · " + (c.admin1 || c.country || "")) + '">' + c.name +
@@ -544,16 +620,17 @@ const parseMedia = HOST.parseMedia.bind(HOST);
       // 手动选过的城市 → 刷新时用该城市；否则重新定位
       if (s && s.lat != null && (s.source === "manual" || s.source === "geo")) {
         wFetchWeather(s.lat, s.lon, s.city, s.source);
-      } else if (s && s.lat != null) {
-        wFetchWeather(s.lat, s.lon, s.city, "ip");
       } else {
         wDoLocate();
       }
     });
-    // 首次加载：优先用上次保存的城市，否则 IP 定位
-    if (settings.weather && settings.weather.lat != null) {
-      wFetchWeather(settings.weather.lat, settings.weather.lon, settings.weather.city,
-        settings.weather.source || "ip");
+    // 首次加载：
+    //  · manual（手动选的城市）→ 用缓存，不打扰用户
+    //  · geo（GPS 精确）→ 用缓存
+    //  · ip（IP 估算）→ 重新定位一次，修正历史上算错的城市
+    const w0 = settings.weather;
+    if (w0 && w0.lat != null && (w0.source === "manual" || w0.source === "geo")) {
+      wFetchWeather(w0.lat, w0.lon, w0.city, w0.source);
     } else {
       wDoLocate();
     }

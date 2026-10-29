@@ -144,19 +144,26 @@ const parseMedia = HOST.parseMedia.bind(HOST);
     return "cloud";
   }
 
-  const wCard = document.getElementById("weather-card");
-  const wIcon = document.getElementById("weather-icon");
-  const wTemp = document.getElementById("weather-temp");
-  const wDesc = document.getElementById("weather-desc");
-  const wCity = document.getElementById("weather-city");
-  const wRange = document.getElementById("weather-range");
-  const wHours = document.getElementById("weather-hours");
-  const wSearch = document.getElementById("weather-search");
-  const wSuggest = document.getElementById("weather-suggest");
-  const wLocate = document.getElementById("weather-locate");
-  const wRefresh = document.getElementById("weather-refresh");
-  const wFx = document.getElementById("weather-fx");
-  const wFxCtx = wFx ? wFx.getContext("2d") : null;
+  // 天气卡片元素：DOM 可能尚未就绪（脚本位置可调整），故延迟绑定
+  let wCard = null, wIcon = null, wTemp = null, wDesc = null, wCity = null,
+      wRange = null, wHours = null, wSearch = null, wSuggest = null,
+      wLocate = null, wRefresh = null, wFx = null, wFxCtx = null;
+  function wBindEls() {
+    wCard = document.getElementById("weather-card");
+    wIcon = document.getElementById("weather-icon");
+    wTemp = document.getElementById("weather-temp");
+    wDesc = document.getElementById("weather-desc");
+    wCity = document.getElementById("weather-city");
+    wRange = document.getElementById("weather-range");
+    wHours = document.getElementById("weather-hours");
+    wSearch = document.getElementById("weather-search");
+    wSuggest = document.getElementById("weather-suggest");
+    wLocate = document.getElementById("weather-locate");
+    wRefresh = document.getElementById("weather-refresh");
+    wFx = document.getElementById("weather-fx");
+    wFxCtx = wFx ? wFx.getContext("2d") : null;
+    return !!wCard;
+  }
 
   let wParticles = [], wFxType = "cloud", wFxRAF = null, wHover = false;
 
@@ -289,42 +296,85 @@ const parseMedia = HOST.parseMedia.bind(HOST);
     try {
       const url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon +
         "&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto&forecast_days=3";
-      const r = await fetch(url);
+      const r = await Promise.race([
+        fetch(url),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("天气请求超时")), 10000))
+      ]);
       const j = await r.json();
       if (!j || !j.current_weather) throw new Error("bad data");
       wRender(Object.assign({}, j, { cityName: cityName }));
       settings.weather = { lat: lat, lon: lon, city: cityName };
       save();
       if (wCard) wCard.classList.remove("loading");
+      return true;
     } catch (e) {
       if (wDesc) wDesc.textContent = "天气获取失败，点击 📍 重试";
       if (wCard) wCard.classList.remove("loading");
+      return false;
     }
   }
+  let wLocateRetries = 0;
   async function wDoLocate() {
     if (wCard) wCard.classList.add("loading");
-    if (wDesc) wDesc.textContent = "正在定位…";
+    if (wDesc) wDesc.textContent = wLocateRetries > 0 ? ("定位重试中（" + wLocateRetries + "/2）…") : "正在定位…";
     // 依次尝试多个 IP 定位源（主源用 https，避免混合内容被浏览器拦截）
     const sources = [
       { url: "https://ipwho.is/",
         pick: (j) => j && j.success && j.latitude != null
-          ? { lat: j.latitude, lon: j.longitude, name: [j.city, j.region, j.country].filter(Boolean).join(" · ") }
+          ? { lat: j.latitude, lon: j.longitude, city: j.city || j.region, region: j.region, country: j.country }
           : null },
       { url: "http://ip-api.com/json/?lang=zh-CN",
         pick: (j) => j && j.status === "success"
-          ? { lat: j.lat, lon: j.lon, name: [j.city, j.regionName, j.country].filter(Boolean).join(" · ") }
+          ? { lat: j.lat, lon: j.lon, city: j.city, region: j.regionName, country: j.country }
+          : null },
+      { url: "https://ipinfo.io/json",
+        pick: (j) => j && j.loc
+          ? (() => { const p = j.loc.split(","); return { lat: +p[0], lon: +p[1], city: j.city, region: j.region, country: j.country }; })()
           : null }
     ];
+    // 带超时的 fetch，避免某个源卡住整个定位
+    const fetchWithTimeout = (url, ms) => Promise.race([
+      fetch(url),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))
+    ]);
     for (const s of sources) {
       try {
-        const r = await fetch(s.url);
+        const r = await fetchWithTimeout(s.url, 8000);
         const j = await r.json();
         const p = s.pick(j);
-        if (p) { await wFetchWeather(p.lat, p.lon, p.name); return; }
+        if (!p) continue;
+        const label = [p.city, p.region, p.country].filter(Boolean).join(" · ");
+        // IP 归属点通常落在运营商机房，坐标不准 → 用城市名反查城市中心坐标
+        let lat = p.lat, lon = p.lon, name = label;
+        try {
+          const g = await fetchWithTimeout(
+            "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(p.city || "") +
+            "&count=5&language=zh", 8000);
+          const gj = await g.json();
+          const cands = (gj && gj.results) || [];
+          if (cands.length) {
+            // 优先取人口最多的同名城市（避免选到同名小地方）
+            const best = cands.slice().sort((a, b) => (b.population || 0) - (a.population || 0))[0];
+            lat = best.latitude; lon = best.longitude;
+            name = [best.name, best.admin1 || best.country].filter(Boolean).join(" · ");
+          }
+        } catch (e) { /* 反查失败则用 IP 原始坐标 */ }
+        const ok = await wFetchWeather(lat, lon, name);
+        if (ok) { wLocateRetries = 0; return; }   // 定位+天气都成功
+        // 定位到了但取天气失败 → 继续试下一个源
+        continue;
       } catch (e) { /* 换下一个源 */ }
     }
     if (wDesc) wDesc.textContent = "定位失败，请手动搜索城市";
     if (wCard) wCard.classList.remove("loading");
+    // 自动重试（最多 2 次，退避 1.5s / 4s）—— 某些源会偶发失败
+    if (wLocateRetries < 2) {
+      wLocateRetries++;
+      const wait = wLocateRetries === 1 ? 1500 : 4000;
+      setTimeout(() => wDoLocate(), wait);
+    } else {
+      wLocateRetries = 0;
+    }
   }
   async function wSearchCity(name) {
     if (!name.trim()) return;
@@ -351,7 +401,8 @@ const parseMedia = HOST.parseMedia.bind(HOST);
     }
   }
 
-  if (wCard) {
+  function wInitWeather() {
+    if (!wBindEls()) return;      // DOM 未就绪时不初始化
     // 初始化
     wCard.classList.add("loading");
     wSizeCanvas(); wInitParticles(); wStartFx();
@@ -391,6 +442,12 @@ const parseMedia = HOST.parseMedia.bind(HOST);
       wDoLocate();
     }
     window.addEventListener("resize", () => { wSizeCanvas(); wInitParticles(); });
+  }
+  // DOM 未就绪时等就绪事件，已就绪则立即执行（双保险，防止脚本位置调整导致失效）
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", wInitWeather);
+  } else {
+    wInitWeather();
   }
 
   // ===== 壁纸应用（双图层交叉淡入，切换更自然）=====

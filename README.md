@@ -11,7 +11,10 @@
 - **动态壁纸与轮换**：视频壁纸，多张壁纸按自定义间隔 / 顺序 / 随机轮换，切换时交叉淡入
 - **效果调节**：壁纸暗化、模糊强度
 - **动态天气卡片**：左下角实时天气（自动定位 / 搜索城市），含晴/雨/雪/雾/云粒子特效、鼠标跟随高光
+- **待办清单**：右下角轻量待办，回车添加、勾选完成、收起展开，本地持久化
 - **玻璃效果可调**：所有卡片的淡化程度、模糊程度可自由调节，另有 4 档快捷预设
+- **键盘快捷键**：`/` 或 `Ctrl+K` 聚焦搜索、`Esc` 关闭、`M` 音乐、`,` 设置、`?` 查看快捷键帮助
+- **配置导出 / 导入**：导出 JSON 文件，在设备之间或扩展版与主页版之间迁移设置、链接、待办
 - **快捷链接**：增删 + 拖拽排序
 - **一键设为主页 / 新标签页**：自动复制地址并给出各浏览器设置步骤
 - **音乐窗口**：本地音乐 / 音频链接播放 + 实时频谱柱形图
@@ -65,9 +68,31 @@ lyric-proxy.js + start-proxy.bat ← 本地代理，供 index.html 解析音乐
 ### 天气卡片
 - 左下角卡片会自动定位所在城市，显示实时天气、温度、今日高低温与未来 3 天预报。
 - 卡片内含动态粒子特效（晴天光束 / 多云雾团 / 雨滴 / 雪花 / 雾带），鼠标悬停时粒子加速。
-- 输入城市名可搜索切换，📍 重新定位，↻ 刷新。
+- 输入城市名可搜索切换，📍 重新定位，↻ 刷新。点击城市名可直接聚焦搜索框。
+- 定位优先用浏览器精确定位（GPS，授权后街区级），未授权时自动回退到 IP 城市级估算。
 - 数据源为 Open-Meteo 公开接口（免费免密钥），首次使用需联网。
 - 想调透明度：⚙ →「卡片玻璃效果」，可分别调节「淡化」「模糊」「天气」三个滑块。
+
+### 待办清单
+- 右下角「📋 待办」卡片，输入内容回车即可添加。
+- 点击方框标记完成（划线置灰），悬停显示删除按钮，点标题栏或 ▾ 收起/展开。
+- 数据存在浏览器本地，刷新不丢。
+
+### 键盘快捷键
+按 `?` 随时查看完整列表。
+
+| 快捷键 | 作用 |
+|---|---|
+| `/` 或 `Ctrl+K` | 聚焦搜索框 |
+| `Esc` | 关闭设置面板 / 弹层 / 天气搜索建议 |
+| `,` | 打开 / 关闭壁纸设置 |
+| `M` | 打开 / 关闭音乐窗口 |
+| `?` | 显示 / 隐藏快捷键帮助 |
+
+### 配置导出 / 导入
+- ⚙ →「配置备份 / 迁移」→「📤 导出配置」会下载一个 JSON 文件。
+- 在另一台电脑、或扩展版 ↔ 主页版之间，用「📥 导入配置」选择该文件即可迁移设置、快捷链接、自定义搜索引擎与待办。
+- ⚠️ 本地上传的图片 / 视频无法打包进配置（浏览器安全限制），迁移壁纸请改用「图片链接」或「文件夹」方式。
 
 ### 音乐与歌词
 - **扩展版（推荐，无需额外工具）**：在音乐窗口「在线解析」粘贴链接即可。扩展后台直连平台官方接口，绕过跨域限制。
@@ -106,7 +131,10 @@ A single-file beautified browser homepage, plus a Chrome / Edge / Firefox extens
 - **Dynamic wallpaper & rotation** — video wallpapers; rotate multiple wallpapers by custom interval / order / random, with cross-fade transitions.
 - **Effects** — wallpaper dimming and blur strength.
 - **Dynamic weather card** — bottom-left live weather (auto-locate / search cities) with sun/rain/snow/fog/cloud particle effects and cursor-following highlights.
+- **Todo list** — bottom-right lightweight todos: Enter to add, click to complete, collapse/expand, stored locally.
 - **Adjustable glass** — tune the fade and blur of every glass card, plus 4 one-click presets.
+- **Keyboard shortcuts** — `/` or `Ctrl+K` focus search, `Esc` close, `M` music, `,` settings, `?` help.
+- **Config export / import** — export a JSON file to move settings, links and todos between devices or between the extension and the standalone page.
 - **Quick links** — add / remove and drag-to-reorder.
 - **One-click set as homepage / new tab** — auto-copy the address and provide setup steps per browser.
 - **Music window** — play local music / audio links with a real-time spectrum visualizer.
@@ -160,9 +188,31 @@ Double-click `index.html`. All data (wallpapers, settings) is stored locally in 
 ### Weather card
 - The bottom-left card auto-locates your city and shows live weather, current temperature, today's high/low and a 3-day forecast.
 - Particle effects react to the actual weather (sun rays / drifting clouds / raindrops / snowflakes / fog bands) and speed up on hover.
-- Type a city name to switch locations; 📍 re-locates, ↻ refreshes.
+- Type a city name to switch locations, 📍 re-locates, ↻ refreshes. Click the city name to jump to the search box.
+- Location prefers the browser's precise API (GPS — street level once granted), falling back to IP-based city-level estimation.
 - Data comes from the free, key-less Open-Meteo API (needs network on first use).
 - Tune transparency: ⚙ → "Glass effect" → adjust the **Fade**, **Blur** and **Weather** sliders.
+
+### Todo list
+- The bottom-right "📋 待办" card: type and press Enter to add.
+- Click the square to mark done (struck through and dimmed); hover to reveal the delete button; click the header or ▾ to collapse/expand.
+- Stored in your browser locally — survives refresh.
+
+### Keyboard shortcuts
+Press `?` anytime for the full list.
+
+| Shortcut | Action |
+|---|---|
+| `/` or `Ctrl+K` | Focus the search box |
+| `Esc` | Close the settings panel / overlays / city suggestions |
+| `,` | Toggle the wallpaper settings panel |
+| `M` | Toggle the music window |
+| `?` | Show / hide the shortcut help |
+
+### Config export / import
+- ⚙ → "配置备份 / 迁移" → **📤 导出配置** downloads a JSON file.
+- On another machine, or between the extension and the standalone page, use **📥 导入配置** and pick that file to migrate settings, quick links, custom engines and todos.
+- ⚠️ Locally uploaded images/videos cannot be bundled (browser security) — use an image URL or a folder for wallpapers when migrating.
 
 ### Music & Lyrics
 - **Extension version (recommended, no extra tools)**: paste a link in the music window's "Online parse" box. The background service worker talks directly to each platform's official API, bypassing CORS.

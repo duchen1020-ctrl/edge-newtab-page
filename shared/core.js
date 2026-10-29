@@ -1425,6 +1425,74 @@ const parseMedia = HOST.parseMedia.bind(HOST);
     if (!panel.contains(e.target) && e.target !== settingsBtn) closePanel(panel);
   });
 
+  // ===== 键盘快捷键 =====
+  // / 或 Ctrl+K → 聚焦搜索；Esc → 关闭面板/弹层；, → 设置；? → 快捷键帮助；m → 音乐；r → 换壁纸
+  const kbdHelp = document.getElementById("kbd-help");
+  function kbdIsTyping(e) {
+    const t = e.target;
+    if (!t) return false;
+    const tag = (t.tagName || "").toLowerCase();
+    return tag === "input" || tag === "textarea" || tag === "select" || t.isContentEditable;
+  }
+  function kbdCloseHelp() { if (kbdHelp) kbdHelp.classList.remove("open"); }
+  document.addEventListener("keydown", (e) => {
+    // 输入框内只处理 Esc（关闭建议列表 / 清空）
+    if (kbdIsTyping(e)) {
+      if (e.key === "Escape") {
+        if (kbdHelp && kbdHelp.classList.contains("open")) { kbdCloseHelp(); return; }
+        const sg = document.getElementById("weather-suggest");
+        if (sg && sg.classList.contains("open")) { sg.classList.remove("open"); return; }
+        e.target.blur();
+      }
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey) {
+      // Ctrl+K / Cmd+K → 聚焦搜索
+      if ((e.ctrlKey || e.metaKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        const si = document.getElementById("search-input");
+        if (si) { si.focus(); si.select(); }
+      }
+      return;
+    }
+    switch (e.key) {
+      case "/": {
+        e.preventDefault();
+        const si = document.getElementById("search-input");
+        if (si) { si.focus(); si.select(); }
+        break;
+      }
+      case "Escape":
+        if (kbdHelp && kbdHelp.classList.contains("open")) { kbdCloseHelp(); break; }
+        if (panel && panel.classList.contains("open")) { closePanel(panel); break; }
+        {
+          const mw = document.getElementById("music-win");
+          if (mw && mw.classList.contains("open")) { mw.classList.remove("open"); break; }
+        }
+        break;
+      case ",":
+        e.preventDefault();
+        if (panel) { panel.classList.contains("open") ? closePanel(panel) : togglePanel(panel); }
+        break;
+      case "?":
+        e.preventDefault();
+        if (kbdHelp) kbdHelp.classList.toggle("open");
+        break;
+      case "m":
+      case "M": {
+        const mb = document.getElementById("music-btn");
+        if (mb) mb.click();
+        break;
+      }
+      default: break;
+    }
+  });
+  if (kbdHelp) {
+    kbdHelp.addEventListener("click", (e) => { if (e.target === kbdHelp) kbdCloseHelp(); });
+    const kbdCloseBtn = document.getElementById("kbd-help-close");
+    if (kbdCloseBtn) kbdCloseBtn.addEventListener("click", kbdCloseHelp);
+  }
+
   // ===== 预设壁纸 =====
   const presetGrid = document.getElementById("preset-grid");
   PRESETS.forEach((p, i) => {
@@ -2163,3 +2231,181 @@ const parseMedia = HOST.parseMedia.bind(HOST);
     document.addEventListener("mouseup", onEnd);
     document.addEventListener("touchend", onEnd);
   })();
+
+  // ===== 待办清单 =====
+  const todoCard = document.getElementById("todo-card");
+  const todoInput = document.getElementById("todo-input");
+  const todoList = document.getElementById("todo-list");
+  const todoEmpty = document.getElementById("todo-empty");
+  const todoCount = document.getElementById("todo-count");
+  const todoToggle = document.getElementById("todo-toggle");
+  const TODO_KEY = "homepage_todos";
+  let todos = [];
+  // 本地转义函数（core.js 中的 escapeHtml 位于音乐代码块内，此处独立实现避免作用域问题）
+  function todoEsc(s) {
+    return (s || "").replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+  function todoLoad() {
+    try {
+      const raw = localStorage.getItem(TODO_KEY);
+      const arr = raw ? JSON.parse(raw) : [];
+      todos = Array.isArray(arr) ? arr.filter(t => t && typeof t.text === "string") : [];
+    } catch (e) { todos = []; }
+  }
+  function todoSave() {
+    try { localStorage.setItem(TODO_KEY, JSON.stringify(todos)); } catch (e) {}
+  }
+  function todoRender() {
+    if (!todoList) return;
+    todoList.innerHTML = todos.map((t, i) =>
+      '<li class="' + (t.done ? "done" : "") + '" data-i="' + i + '">' +
+      '<button class="todo-check" title="标记完成">✓</button>' +
+      '<span class="todo-text">' + todoEsc(t.text) + '</span>' +
+      '<button class="todo-del" title="删除">×</button>' +
+      '</li>'
+    ).join("");
+    if (todoEmpty) todoEmpty.style.display = todos.length ? "none" : "block";
+    if (todoCount) {
+      const left = todos.filter(t => !t.done).length;
+      todoCount.textContent = todos.length ? (left ? left + " 项未完成" : "全部完成 ✓") : "";
+    }
+    // 事件绑定（每次渲染后重绑）
+    todoList.querySelectorAll("li").forEach(li => {
+      const i = +li.dataset.i;
+      li.querySelector(".todo-check").onclick = () => {
+        todos[i].done = !todos[i].done; todoSave(); todoRender();
+      };
+      li.querySelector(".todo-del").onclick = () => {
+        todos.splice(i, 1); todoSave(); todoRender();
+      };
+    });
+  }
+  if (todoCard) {
+    todoLoad();
+    todoRender();
+    if (todoInput) {
+      todoInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const v = todoInput.value.trim();
+          if (!v) return;
+          todos.unshift({ text: v, done: false, ts: Date.now() });
+          todoInput.value = "";
+          todoSave(); todoRender();
+          e.stopPropagation();
+        }
+        e.stopPropagation();   // 避免触发全局快捷键
+      });
+    }
+    if (todoToggle) {
+      todoToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        todoCard.classList.toggle("collapsed");
+      });
+    }
+    // 点击标题栏空白处也能收起
+    const todoHead = todoCard.querySelector(".todo-head");
+    if (todoHead) {
+      todoHead.addEventListener("click", (e) => {
+        if (e.target === todoToggle || todoToggle.contains(e.target)) return;
+        todoCard.classList.toggle("collapsed");
+      });
+    }
+  }
+
+  // ===== 配置导出 / 导入 =====
+  // 用途：扩展版与主页版数据隔离（同源策略），重装扩展也会丢配置。
+  //      导出为 JSON 文件，可在设备之间迁移。
+  const cfgExport = document.getElementById("cfg-export");
+  const cfgImport = document.getElementById("cfg-import");
+  const cfgImportFile = document.getElementById("cfg-import-file");
+  function cfgBuildPayload() {
+    // 壁纸若是本地上传的 blob: URL，无法跨设备使用 —— 导出时剔除并标记
+    const wp = settings.wallpaper || "";
+    const isLocalBlob = typeof wp === "string" && wp.indexOf("blob:") === 0;
+    const isDataUrl = typeof wp === "string" && wp.indexOf("data:") === 0;
+    const out = {
+      __app: "beautified-newtab",
+      __version: 1,
+      __exportedAt: new Date().toISOString(),
+      settings: JSON.parse(JSON.stringify(settings || {})),
+      todos: JSON.parse(JSON.stringify(todos || []))
+    };
+    if (isLocalBlob || isDataUrl) {
+      out.settings.wallpaper = "";
+      out.settings.wallpaperType = "gradient";
+      out.__wallpaperSkipped = true;   // 提示用户本地壁纸未包含
+    }
+    return out;
+  }
+  if (cfgExport) {
+    cfgExport.addEventListener("click", () => {
+      try {
+        const payload = cfgBuildPayload();
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        const d = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        a.href = url;
+        a.download = "主页配置-" + d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) +
+                     "-" + pad(d.getHours()) + pad(d.getMinutes()) + ".json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast(payload.__wallpaperSkipped
+          ? "配置已导出（本地上传的壁纸未包含，请用链接或文件夹方式设置）"
+          : "配置已导出");
+      } catch (e) {
+        showToast("导出失败：" + (e && e.message ? e.message : e));
+      }
+    });
+  }
+  // 应用导入的配置（独立函数，便于测试与复用）
+  function cfgApplyImport(data) {
+    if (!data || data.__app !== "beautified-newtab" || !data.settings) {
+      showToast("导入失败：不是本主页导出的配置文件");
+      return false;
+    }
+    const imported = data.settings;
+    // 保留当前壁纸，除非导入包里有可用的壁纸
+    const curWall = settings.wallpaper;
+    const curType = settings.wallpaperType;
+    settings = Object.assign(settings, imported);
+    if (!imported.wallpaper) { settings.wallpaper = curWall; settings.wallpaperType = curType; }
+    save();
+    if (Array.isArray(data.todos)) {
+      todos = data.todos.filter(t => t && typeof t.text === "string");
+      try { localStorage.setItem(TODO_KEY, JSON.stringify(todos)); } catch (e2) {}
+      todoRender();
+    }
+    // 重新应用各项设置
+    try { applyEffects(); } catch (e3) {}
+    try { applyGlass(); } catch (e4) {}
+    try { applyWallpaper(); } catch (e5) {}
+    try { renderLinks(); } catch (e6) {}
+    try { buildEngineMenu(); } catch (e7) {}
+    try { const en = document.getElementById("engine-name"); if (en) en.textContent = settings.engine; } catch (e8) {}
+    showToast("配置导入成功" + (data.__wallpaperSkipped ? "（壁纸保持原样）" : ""));
+    return true;
+  }
+  if (cfgImport && cfgImportFile) {
+    cfgImport.addEventListener("click", () => cfgImportFile.click());
+    cfgImportFile.addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          cfgApplyImport(JSON.parse(String(reader.result)));
+        } catch (err) {
+          showToast("导入失败：文件格式不正确");
+        } finally {
+          e.target.value = "";   // 允许重复导入同一文件
+        }
+      };
+      reader.onerror = () => showToast("导入失败：无法读取文件");
+      reader.readAsText(file);
+    });
+  }

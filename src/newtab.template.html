@@ -210,6 +210,15 @@
     </section>
 
     <section>
+      <label>配置备份 / 迁移</label>
+      <div style="display:flex;gap:6px">
+        <button class="btn" id="cfg-export" style="flex:1">📤 导出配置</button>
+        <button class="btn" id="cfg-import" style="flex:1">📥 导入配置</button>
+      </div>
+      <input id="cfg-import-file" type="file" accept="application/json,.json" hidden />
+      <div class="hint" style="margin-top:6px">导出为 JSON 文件，可在另一台电脑 / 扩展版与主页版之间迁移设置、快捷链接、搜索引擎与待办。注意：本地上传的图片/视频无法打包，请改用「图片链接」或「文件夹」方式设置壁纸。</div>
+    </section>
+    <section>
       <label>浏览器自动启动 / 主页 / 新标签页</label>
       <button class="btn" id="set-home" style="width:100%;margin-bottom:8px">🏠 一键设为主页</button>
       <button class="btn" id="set-newtab" style="width:100%;margin-bottom:8px">🆕 设为新建标签页</button>
@@ -241,6 +250,35 @@
     <button class="btn" id="weather-refresh" title="刷新">↻</button>
   </div>
   <div class="weather-suggest" id="weather-suggest"></div>
+</div>
+
+    <!-- ===== 待办清单 ===== -->
+    <div class="todo-card enter" id="todo-card">
+      <div class="todo-head">
+        <span class="todo-title">📋 待办</span>
+        <span class="todo-count" id="todo-count"></span>
+        <button class="todo-toggle" id="todo-toggle" title="收起/展开">▾</button>
+      </div>
+      <div class="todo-body" id="todo-body">
+        <input id="todo-input" type="text" placeholder="回车添加待办…" maxlength="120" />
+        <ul class="todo-list" id="todo-list"></ul>
+        <div class="todo-empty" id="todo-empty">暂无待办，输入内容后回车添加</div>
+      </div>
+    </div>
+<!-- ===== 键盘快捷键帮助 ===== -->
+<div class="kbd-help" id="kbd-help">
+  <div class="kbd-help-box">
+    <div class="kbd-help-title">键盘快捷键</div>
+    <div class="kbd-list">
+      <div class="kbd-row"><kbd>/</kbd><span>聚焦搜索框</span></div>
+      <div class="kbd-row"><kbd>Ctrl</kbd>+<kbd>K</kbd><span>聚焦搜索框</span></div>
+      <div class="kbd-row"><kbd>Esc</kbd><span>关闭面板 / 弹层</span></div>
+      <div class="kbd-row"><kbd>,</kbd><span>打开壁纸设置</span></div>
+      <div class="kbd-row"><kbd>M</kbd><span>打开音乐窗口</span></div>
+      <div class="kbd-row"><kbd>?</kbd><span>显示 / 隐藏本帮助</span></div>
+    </div>
+    <button class="kbd-help-close" id="kbd-help-close">知道了</button>
+  </div>
 </div>
 
 <!--SCRIPT-->

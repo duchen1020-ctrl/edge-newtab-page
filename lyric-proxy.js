@@ -125,13 +125,13 @@ function detectPlatform(raw) {
   return "";
 }
 
-async function parseByPlatform(raw) {
+async function parseByPlatform(raw, quality) {
   const p = detectPlatform(raw);
   if (p === "bilibili") return getBiliAudio(raw);
   if (p === "netease") {
     const id = extractId(raw);
     if (!id) return { ok: false, error: "无法识别网易云歌曲ID" };
-    const r = await getLyric(id);
+    const r = await getLyric(id, quality);
     r.platform = "netease"; return r;
   }
   return {
@@ -185,9 +185,9 @@ async function getKugouLyric(name, duration) {
   } catch (e) { return ""; }
 }
 
-async function getLyric(id) {
+async function getLyric(id, quality) {
   try {
-    const br = brFromQuality("standard");
+    const br = brFromQuality(quality || "standard");
     const j = await httpsGetJSON(
       "https://music.163.com/api/song/enhance/player/url?ids=" +
       encodeURIComponent("[" + id + "]") + "&br=" + br
@@ -254,11 +254,12 @@ const server = http.createServer(async (req, res) => {
   } else if (u.pathname === "/parse") {
     // 统一多平台解析入口：自动识别 B站 / 网易云 等
     const raw = u.searchParams.get("url") || u.searchParams.get("id") || "";
+    const quality = u.searchParams.get("q") || u.searchParams.get("quality") || "standard";
     if (!raw.trim()) {
       res.end(JSON.stringify({ ok: false, error: "请输入链接（B站视频链接 / BV号 / 网易云歌曲链接均可）" }));
       return;
     }
-    const result = await parseByPlatform(raw);
+    const result = await parseByPlatform(raw, quality);
     res.end(JSON.stringify(result));
   } else if (u.pathname === "/") {
     res.end("lyric proxy ok");

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>我的主页</title>
 <style>
-  :root {
+:root {
     /* 玻璃卡片可调参数：--glass-alpha = 底色不透明度(0~0.5)，--glass-blur = 背景模糊(0~30px) */
     --glass-alpha: 0.16;
     --glass-blur: 16px;
@@ -468,6 +468,7 @@
   .upload-label:hover { background: rgba(255,255,255,0.12); }
   .hint { font-size: 11px; opacity: 0.7; margin-top: 6px; line-height: 1.5; }
   .slider-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 13px; }
+  .slider-row input[type="range"] { flex: 1; accent-color: #fff; cursor: pointer; }
   .slider-row span { width: 34px; opacity: 0.85; flex-shrink: 0; }
   #toast {
     position: fixed;
@@ -864,7 +865,8 @@
     #ambient .blob { animation: none; }
     #greeting.enter, #clock.enter, #date.enter, #quote.enter, .search-wrap.enter, .link.enter { animation: none; }
   }
-</style>
+
+  </style>
 </head>
 <body>
   <div id="wallpaper"></div>
@@ -945,7 +947,16 @@
       <input id="ne-input" type="text" placeholder="粘贴 B站视频链接、网易云歌曲链接或ID" />
       <button class="btn" id="ne-parse">解析</button>
     </div>
-    <div class="hint">支持：哔哩哔哩（视频链接 / BV号 / av号，自动提取音频，显示封面与标题）、网易云音乐（歌曲链接 / ID，自动取歌词）。QQ音乐/酷狗/酷我因平台签名与登录限制暂不支持，请先下载音频再用本地文件播放。</div>
+    <div class="url-row" style="margin-top:6px">
+      <select id="ne-quality" style="flex:1;border:1px solid var(--glass-border);background:rgba(255,255,255,0.12);color:var(--text);border-radius:10px;padding:8px;outline:none;font-size:13px">
+        <option value="standard">标准音质</option>
+        <option value="exhigh">极高音质</option>
+        <option value="lossless">无损音质</option>
+        <option value="hires">Hi-Res</option>
+        <option value="jymaster">超清母带</option>
+      </select>
+    </div>
+    <div class="hint">支持：哔哩哔哩（视频链接 / BV号 / av号，自动提取音频，显示封面与标题）、网易云音乐（歌曲链接 / ID，自动取歌词，可选音质）。需先双击 start-proxy.bat 启动本地代理。QQ音乐/酷狗/酷我因平台签名与登录限制暂不支持，请先下载音频再用本地文件播放。</div>
   </div>
   <audio id="music-audio"></audio>
 
@@ -1061,7 +1072,37 @@
   </div>
 
 <script>
-  // ===== 引擎配置 =====
+// ===== 主页版 HOST：音乐解析走本地代理（start-proxy.bat）=====
+window.__HOST = {
+  mode: "standalone",
+  parseMedia(raw, quality) {
+    return fetch("http://127.0.0.1:8787/parse?url=" + encodeURIComponent(raw) +
+      "&q=" + encodeURIComponent(quality || "standard"))
+      .then(r => r.json())
+      .catch(() => ({ ok: false, error: "无法连接本地代理，请先双击 start-proxy.bat 启动" }));
+  }
+};
+// ============================================================
+// 共享核心 —— 由 build.js 注入到 index.html 与扩展版 newtab.js
+// 环境差异通过下方 HOST 适配器注入，核心逻辑两版完全一致。
+// ============================================================
+
+// ===== HOST 适配器（宿主必须先定义 window.__HOST，再加载本文件）=====
+// parseMedia(raw, quality) -> Promise<{ok, url, name, lyric, cover, platform, ...}>
+//   主页版：走本地代理 http://127.0.0.1:8787/parse
+//   扩展版：走 chrome.runtime.sendMessage({type:'media_parse'})
+// sendMessage(msg) -> Promise<resp>（仅扩展版需要）
+const HOST = window.__HOST || {
+  mode: "standalone",
+  parseMedia(raw, quality) {
+    return fetch("http://127.0.0.1:8787/parse?url=" + encodeURIComponent(raw))
+      .then(r => r.json())
+      .catch(() => ({ ok: false, error: "无法连接本地代理，请先双击 start-proxy.bat 启动" }));
+  }
+};
+const parseMedia = HOST.parseMedia.bind(HOST);
+
+// ===== 引擎配置 =====
   const ENGINES = {
     "百度":   "https://www.baidu.com/s?wd=",
     "Google": "https://www.google.com/search?q=",
@@ -2827,6 +2868,7 @@
     // 在线解析（B站 / 网易云，依赖本地代理 start-proxy.bat）
     const neInput = document.getElementById("ne-input");
     const neParseBtn = document.getElementById("ne-parse");
+    const neQuality = document.getElementById("ne-quality");   // 音质选择（两版都有）
     const coverEl = document.getElementById("music-cover");
     function showCover(url) {
       if (!coverEl) return;
@@ -2838,8 +2880,8 @@
         const raw = (neInput && neInput.value || "").trim();
         if (!raw) { showToast("请粘贴 B站视频链接、网易云歌曲链接或ID"); return; }
         neParseBtn.textContent = "解析中…"; neParseBtn.disabled = true;
-        fetch("http://127.0.0.1:8787/parse?url=" + encodeURIComponent(raw))
-          .then((r) => r.json())
+        // 解析通道由宿主注入：主页走本地代理，扩展走 chrome.runtime 消息
+        parseMedia(raw, neQuality ? neQuality.value : "standard")
           .then((resp) => {
             neParseBtn.textContent = "解析"; neParseBtn.disabled = false;
             if (!resp || !resp.ok || !resp.url) {
@@ -2930,7 +2972,8 @@
     document.addEventListener("mouseup", onEnd);
     document.addEventListener("touchend", onEnd);
   })();
-</script>
+
+  </script>
 
 <!-- ===== 动态天气卡片（固定左下角，独立于居中布局） ===== -->
 <div class="weather-card enter" id="weather-card">

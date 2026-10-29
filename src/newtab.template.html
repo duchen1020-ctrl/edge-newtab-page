@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>新建标签页</title>
+<!--STYLE-->
+</head>
+<body>
+  <div id="ext-note" style="position:fixed;top:0;left:0;right:0;z-index:50;background:rgba(0,0,0,0.72);color:#fff;font-size:13px;padding:8px 14px;display:none;align-items:center;gap:10px;backdrop-filter:blur(calc(var(--glass-blur) * .375));-webkit-backdrop-filter:blur(calc(var(--glass-blur) * .375));box-shadow:0 2px 10px rgba(0,0,0,0.3)">
+    <span style="flex:1">📌 这是主页的扩展版：浏览器安全限制下数据与主文件相互独立，壁纸 / 壁纸库请在右上角 ⚙ 重新设置一次（重选「文件夹」或上传即可），之后每次新标签页都会自动生效。</span>
+    <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;opacity:0.95;user-select:none">
+      <input type="checkbox" id="ext-note-remember" /> 记住我的选择
+    </label>
+    <button id="ext-note-close" style="border:none;background:rgba(255,255,255,0.22);color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;white-space:nowrap">知道了</button>
+  </div>
+  <div id="wallpaper"></div>
+  <div id="overlay"></div>
+  <div id="ambient">
+    <span class="blob b1"></span>
+    <span class="blob b2"></span>
+    <span class="blob b3"></span>
+  </div>
+
+  <div class="container">
+    <div id="greeting" class="enter"></div>
+    <div id="clock" class="enter"><span id="ch">00</span><span class="colon">:</span><span id="cm">00</span><span class="colon">:</span><span id="cs">00</span></div>
+    <div id="date" class="enter"></div>
+
+    <div id="quote" class="enter">
+      <span class="q-text"></span><span class="q-author"></span>
+      <button class="q-refresh" id="quote-refresh" title="换一句" aria-label="换一句">↻</button>
+    </div>
+
+    <div class="search-wrap enter">
+      <div class="engine-box">
+        <button class="engine-btn" id="engine-btn">
+          <span id="engine-name">百度</span>
+          <span class="caret">▼</span>
+        </button>
+        <div class="engine-menu" id="engine-menu"></div>
+        <input type="file" id="engine-import" accept="application/json,.json" hidden />
+      </div>
+      <input class="search-input" id="search-input" type="text"
+        placeholder="输入关键词，回车搜索…" autocomplete="off" />
+      <button class="search-btn" id="search-btn" title="搜索">🔍</button>
+    </div>
+
+    <div class="links" id="links"></div>
+    <canvas id="viz" class="viz" aria-hidden="true"></canvas>
+  </div>
+
+  <button id="settings-btn" title="壁纸设置">⚙</button>
+  <button id="music-btn" title="音乐播放器">🎵</button>
+
+  <div class="music-win" id="music-win">
+    <div class="music-bar" id="music-bar">
+      <span>🎵 音乐解析</span>
+      <span class="drag-hint" title="按住拖动可移动窗口">⠿</span>
+    </div>
+    <div class="music-meta">
+      <img id="music-cover" class="music-cover" alt="" hidden />
+      <div class="music-info" id="music-name">未选择音乐</div>
+    </div>
+    <div class="lyric-box" id="lyric-box"><div class="lyric-empty">暂无歌词</div></div>
+    <div class="music-controls">
+      <button class="btn" id="music-play">▶ 播放</button>
+      <div class="music-progress-wrap" id="music-progress-wrap">
+        <div class="music-progress-buffer" id="music-progress-buffer"></div>
+        <input type="range" id="music-progress" class="music-progress" min="0" max="100" value="0" />
+        <div class="music-progress-tip" id="music-progress-tip">0:00</div>
+      </div>
+      <span id="music-time" class="music-time">0:00</span>
+    </div>
+    <label class="upload-label" for="music-file" style="margin-bottom:8px">＋ 选择本地音乐文件</label>
+    <input id="music-file" type="file" accept="audio/*" hidden />
+    <div class="url-row">
+      <input id="music-url" type="text" placeholder="或粘贴音频链接 https://…" />
+      <button class="btn" id="music-url-apply">加载</button>
+    </div>
+    <div class="slider-row" style="margin-top:8px">
+      <span>音量</span>
+      <input type="range" id="music-volume" min="0" max="1" step="0.01" value="0.8" />
+    </div>
+    <div class="hint">本地音乐可显示实时频谱；部分跨域音频链接若服务器未开启 CORS，浏览器会禁止频谱分析（仅播放无声谱），属正常安全限制。</div>
+
+    <div class="music-divider"></div>
+    <div class="music-label">🎧 在线解析（B站 / 网易云）</div>
+    <div class="url-row">
+      <input id="ne-input" type="text" placeholder="粘贴 B站视频链接或网易云歌曲链接/ID" />
+      <button class="btn" id="ne-parse">解析</button>
+    </div>
+    <div class="url-row" style="margin-top:6px">
+      <select id="ne-quality" style="flex:1;border:1px solid var(--glass-border);background:rgba(255,255,255,0.12);color:var(--text);border-radius:10px;padding:8px;outline:none;font-size:13px">
+        <option value="standard">标准音质</option>
+        <option value="exhigh">极高音质</option>
+        <option value="lossless">无损音质</option>
+        <option value="hires">Hi-Res</option>
+        <option value="jymaster">超清母带</option>
+      </select>
+    </div>
+    <div class="hint">支持：哔哩哔哩（视频链接 / BV号 / av号，自动提取最高音质音频，显示封面与标题）、网易云音乐（歌曲链接 / ID，自动取歌词，可选音质）。由扩展后台代发请求绕过跨域限制，无需第三方服务、更稳定。QQ音乐/酷狗/酷我因平台签名与登录限制暂不支持。</div>
+    <div class="music-divider"></div>
+    <div class="music-label">歌词（粘贴 LRC 可同步滚动显示）</div>
+    <textarea id="lyric-input" class="lyric-input" placeholder="[00:12.34] 歌词内容&#10;可整段粘贴 LRC 文本"></textarea>
+    <button class="btn" id="lyric-apply" style="margin-top:6px;width:100%">应用歌词</button>
+  </div>
+  <audio id="music-audio"></audio>
+
+  <div class="panel" id="panel">
+    <div class="panel-bar" id="panel-bar">
+      <span>🎨 壁纸设置</span>
+      <span class="drag-hint" title="按住拖动可移动窗口">⠿</span>
+    </div>
+
+    <section>
+      <label>选择预设壁纸</label>
+      <div class="preset-grid" id="preset-grid"></div>
+      <button class="btn" id="random-btn" style="margin-top:10px;width:100%">🎲 随机换一张壁纸</button>
+    </section>
+
+    <section>
+      <label>导入本地图片</label>
+      <label class="upload-label" for="upload-image">
+        ＋ 点击选择图片（自动保存，下次打开显示）
+      </label>
+      <input id="upload-image" type="file" accept="image/*" hidden />
+
+      <label style="margin-top:12px;display:block">导入本地视频（动态壁纸）</label>
+      <label class="upload-label" for="upload-video">
+        ＋ 点击选择视频（自动保存，下次打开显示）
+      </label>
+      <input id="upload-video" type="file" accept="video/*" hidden />
+      <div class="hint">导入的本地文件存入浏览器本地数据库，不受大小限制，刷新或重开浏览器都会自动显示。</div>
+    </section>
+
+    <section>
+      <label>📁 选择文件夹（壁纸库 + 动态轮换）</label>
+      <label class="upload-label" for="folder-input">
+        ＋ 选择本地文件夹，导入其中所有图片 / 视频
+      </label>
+      <input id="folder-input" type="file" webkitdirectory multiple hidden />
+      <div class="hint" id="gallery-count">尚未导入壁纸库</div>
+
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.9;cursor:pointer;margin-top:10px">
+        <input type="checkbox" id="rotation-enabled" /> 开启动态轮换
+      </label>
+      <div class="slider-row" style="margin-top:8px">
+        <span>间隔</span>
+        <input type="number" id="rotation-interval" min="1" max="3600" step="1" value="30" style="flex:1;border:1px solid var(--glass-border);background:rgba(255,255,255,0.12);color:var(--text);border-radius:10px;padding:8px;outline:none;font-size:13px" />
+        <span style="font-size:13px;opacity:0.85;white-space:nowrap">秒</span>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.9;cursor:pointer;margin-top:4px">
+        <input type="checkbox" id="rotation-random" /> 随机顺序（不按顺序循环）
+      </label>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="btn" id="next-wallpaper" style="flex:1">⏭ 下一张</button>
+        <button class="btn" id="clear-gallery" style="flex:1">🗑 清空壁纸库</button>
+      </div>
+      <div class="hint">每次选择文件夹会替换原有壁纸库；导入的图片/视频存于本地数据库，刷新或重开浏览器都会自动轮换。超大视频可能因浏览器存储上限保存失败，可改用较小文件。</div>
+    </section>
+
+    <section>
+      <label>或填写图片 / 视频链接（URL）</label>
+      <div class="url-row">
+        <input id="url-input" type="text" placeholder="https://… 图片或视频地址" />
+        <button class="btn" id="url-apply">应用</button>
+      </div>
+      <div class="hint">请粘贴「图片/视频文件」直链（以 .jpg/.png/.webp 或 .mp4/.webm 结尾），而非壁纸网站的详情页链接（如 haowallpaper 的详情页会被防盗链拦截）。</div>
+    </section>
+
+    <section>
+      <label>壁纸效果</label>
+      <div class="slider-row"><span>暗化</span><input type="range" id="dark-slider" min="0" max="0.8" step="0.05" /></div>
+      <div class="slider-row"><span>模糊</span><input type="range" id="blur-slider" min="0" max="20" step="1" /></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.9;cursor:pointer;margin-top:6px">
+        <input type="checkbox" id="ambient-toggle" /> 背景氛围光斑（让壁纸更有生命力）
+      </label>
+      <button class="btn" id="video-toggle" style="display:none;margin-top:6px;width:100%">⏸ 暂停动态壁纸</button>
+    </section>
+
+    <section>
+      <label>卡片玻璃效果</label>
+      <div class="slider-row"><span>淡化</span><input type="range" id="glass-alpha-slider" min="0" max="0.5" step="0.01" /></div>
+      <div class="slider-row"><span>模糊</span><input type="range" id="glass-blur-slider" min="0" max="30" step="1" /></div>
+      <div class="slider-row"><span>天气</span><input type="range" id="weather-alpha-slider" min="0" max="0.4" step="0.01" /></div>
+      <div class="glass-presets" id="glass-presets">
+        <button class="btn" data-a="0.06" data-b="6">通透</button>
+        <button class="btn" data-a="0.16" data-b="16">标准</button>
+        <button class="btn" data-a="0.3" data-b="22">厚实</button>
+        <button class="btn" data-a="0.42" data-b="28">磨砂</button>
+      </div>
+      <div class="hint" style="margin-top:6px">淡化程度决定卡片底色的通透感（越小越透明），模糊决定背景虚化强度。「天气」项单独调节左下角天气卡片的淡化程度。天气卡片、快捷链接、设置面板与音乐面板会同步生效。</div>
+    </section>
+
+    <section>
+      <label>每日一言</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;opacity:0.9;cursor:pointer">
+        <input type="checkbox" id="quote-auto-toggle" /> 自动刷新文案
+      </label>
+      <div class="slider-row" style="margin-top:8px"><span>间隔</span>
+        <select id="quote-auto-interval" class="btn" style="flex:1;padding:8px 10px">
+          <option value="10">10 秒</option>
+          <option value="30">30 秒</option>
+          <option value="60">1 分钟</option>
+          <option value="180">3 分钟</option>
+          <option value="300">5 分钟</option>
+        </select>
+      </div>
+    </section>
+
+    <section>
+      <label>浏览器自动启动 / 主页 / 新标签页</label>
+      <button class="btn" id="set-home" style="width:100%;margin-bottom:8px">🏠 一键设为主页</button>
+      <button class="btn" id="set-newtab" style="width:100%;margin-bottom:8px">🆕 设为新建标签页</button>
+      <button class="btn" id="copy-path" style="width:100%;margin-bottom:8px">📋 复制本页路径</button>
+      <div class="hint">「一键设为主页」「设为新建标签页」都会自动识别浏览器并给出精确步骤，同时复制本页地址，你只需在设置里粘贴即可。Firefox / Safari 原生支持自定义新标签页；Chrome / Edge 需安装「New Tab Redirect」类扩展（步骤里已说明）。也可安装为应用：菜单 → 更多工具 → 创建快捷方式（勾选"作为窗口打开"）。</div>
+    </section>
+  </div>
+
+<!--SCRIPT-->
+
+<!-- ===== 动态天气卡片（固定左下角，独立于居中布局） ===== -->
+<div class="weather-card enter" id="weather-card">
+  <canvas class="weather-fx" id="weather-fx" aria-hidden="true"></canvas>
+  <div class="weather-main">
+    <div class="weather-icon" id="weather-icon" aria-hidden="true"></div>
+    <div class="weather-now">
+      <div class="weather-temp" id="weather-temp">--°</div>
+      <div class="weather-desc" id="weather-desc">正在获取天气…</div>
+    </div>
+  </div>
+  <div class="weather-meta">
+    <span class="weather-city" id="weather-city">定位中…</span>
+    <span class="weather-dot">·</span>
+    <span id="weather-range">-- / --°</span>
+  </div>
+  <div class="weather-hours" id="weather-hours"></div>
+  <div class="weather-actions">
+    <input id="weather-search" type="text" placeholder="搜索城市" maxlength="20" />
+    <button class="btn" id="weather-locate" title="重新定位">📍</button>
+    <button class="btn" id="weather-refresh" title="刷新">↻</button>
+  </div>
+  <div class="weather-suggest" id="weather-suggest"></div>
+</div>
+</body>
+</html>

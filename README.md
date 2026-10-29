@@ -20,9 +20,34 @@
 
 ## 📁 目录结构
 
-- `index.html` —— 单文件主页，双击即可在浏览器打开使用
-- `newtab-extension/` —— Chrome / Edge / Firefox MV3 扩展（覆盖新标签页）
-- `lyric-proxy.js` + `start-proxy.bat` —— 本地代理，供 `index.html` 解析音乐用（见下）
+```
+index.html                  ← 构建产物（单文件，内联 CSS/JS，双击即用）
+build.js                    ← 构建脚本（node build.js）
+src/
+  index.template.html       ← 主页版 HTML 模板
+  newtab.template.html      ← 扩展版 HTML 模板
+shared/
+  style.css                 ← 两版共用样式
+  core.js                   ← 两版共用逻辑
+newtab-extension/           ← 扩展产物（Chrome/Edge/Firefox MV3）
+lyric-proxy.js + start-proxy.bat ← 本地代理，供 index.html 解析音乐
+```
+
+## 🛠️ 开发流程（给二次开发者）
+
+**两版共用一份源码**，改一处即可同步两版：
+
+1. 修改 `shared/style.css` 或 `shared/core.js`（共用样式与逻辑）
+2. 需要改结构时改 `src/*.template.html`（HTML 模板）
+3. 运行 `node build.js` 生成 `index.html` 与 `newtab-extension/`
+
+> ⚠️ **不要直接改 `index.html` 或 `newtab-extension/*`**，它们是构建产物，下次构建会被覆盖。
+
+**两版的唯一差异**是 HOST 适配器（写在 `build.js` 里）：
+- 主页版：音乐解析走本地代理 `http://127.0.0.1:8787/parse`
+- 扩展版：音乐解析走 `chrome.runtime.sendMessage({type:'media_parse'})`，由 `background.js` 处理
+
+新增环境相关能力时，在 `shared/core.js` 里通过 `HOST.parseMedia()` 这类注入点调用，不要写死环境判断。
 
 ## 🚀 使用方式
 
@@ -90,9 +115,34 @@ A single-file beautified browser homepage, plus a Chrome / Edge / Firefox extens
 
 ## 📁 Structure
 
-- `index.html` — single-file homepage; double-click to open in a browser.
-- `newtab-extension/` — Chrome / Edge / Firefox MV3 extension (overrides the new tab page).
-- `lyric-proxy.js` + `start-proxy.bat` — local proxy so `index.html` can parse music (see below).
+```
+index.html                  ← build artifact (single file, inlined CSS/JS)
+build.js                    ← build script (node build.js)
+src/
+  index.template.html       ← main-version HTML template
+  newtab.template.html      ← extension-version HTML template
+shared/
+  style.css                 ← styles shared by both versions
+  core.js                   ← logic shared by both versions
+newtab-extension/           ← extension artifact (Chrome/Edge/Firefox MV3)
+lyric-proxy.js + start-proxy.bat ← local proxy for index.html music parsing
+```
+
+## 🛠️ Development workflow (for contributors)
+
+**Both versions share one source tree** — change once, both stay in sync:
+
+1. Edit `shared/style.css` or `shared/core.js` (shared styles & logic)
+2. Edit `src/*.template.html` when the structure changes
+3. Run `node build.js` to regenerate `index.html` and `newtab-extension/`
+
+> ⚠️ **Do not edit `index.html` or `newtab-extension/*` directly** — they are build artifacts and will be overwritten.
+
+**The only difference between versions** is the HOST adapter (defined in `build.js`):
+- Main version: music parsing goes through the local proxy `http://127.0.0.1:8787/parse`
+- Extension version: music parsing goes through `chrome.runtime.sendMessage({type:'media_parse'})`, handled by `background.js`
+
+When adding environment-specific features, call through an injection point like `HOST.parseMedia()` in `shared/core.js` instead of hard-coding environment checks.
 
 ## 🚀 Usage
 

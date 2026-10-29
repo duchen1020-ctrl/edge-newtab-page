@@ -18,3 +18,9 @@ _t.js
 
 # 分发打包产物
 *.zip
+
+# 重构前备份与测试临时文件
+_backup_*.html
+_backup_*.js
+_probe*.html
+_dist*/

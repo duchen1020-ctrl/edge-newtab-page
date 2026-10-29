@@ -4,6 +4,16 @@
 
 一个单文件的美化浏览器主页，并附带可覆盖「新标签页」的 Chrome / Edge 扩展，以及在线音乐解析（B站 / 网易云）与歌词显示。全部运行在本地浏览器，不依赖任何外部服务。
 
+## 📥 获取方式
+
+| 方式 | 说明 |
+|---|---|
+| **直接下载** | 到 [Releases](https://github.com/duchen1020-ctrl/edge-newtab-page/releases) 下载 `美化主页-新标签页扩展-v*.zip`，解压即用 |
+| **克隆源码** | `git clone https://github.com/duchen1020-ctrl/edge-newtab-page.git` |
+| **在线预览** | 打开 https://duchen1020-ctrl.github.io/edge-newtab-page/ |
+
+> 源码仓库：https://github.com/duchen1020-ctrl/edge-newtab-page
+
 ## ✨ 功能
 
 - **搜索框**：预设百度 / Google / 必应 / DuckDuckGo / GitHub，并支持**自定义添加 / 删除**搜索引擎（用 `%s` 占位查询词）
@@ -145,6 +155,16 @@ lyric-proxy.js + start-proxy.bat ← 本地代理，供 index.html 解析音乐
 ---
 
 ## English
+
+## 📥 Get it
+
+| Method | How |
+|---|---|
+| **Download** | Grab `美化主页-新标签页扩展-v*.zip` from [Releases](https://github.com/duchen1020-ctrl/edge-newtab-page/releases), unzip and use |
+| **Clone** | `git clone https://github.com/duchen1020-ctrl/edge-newtab-page.git` |
+| **Online preview** | Open https://duchen1020-ctrl.github.io/edge-newtab-page/ |
+
+> Source: https://github.com/duchen1020-ctrl/edge-newtab-page
 
 # Beautified Browser New Tab · Extension · Music Lyrics
 

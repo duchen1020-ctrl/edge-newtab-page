@@ -81,7 +81,8 @@ function buildIndex() {
   const tpl = read("src/index.template.html");
   const out = tpl
     .replace("<!--STYLE-->", "<style>\n" + styleCss + "\n  </style>")
-    .replace("<!--SCRIPT-->", "<script>\n" + HOST_STANDALONE + coreJs + "\n  </script>");
+    .replace("<!--SCRIPT-->", "<script>\n" + HOST_STANDALONE + coreJs + "\n  </script>")
+    .replace("<!--VERSION-->", VERSION);
   write("index.html", out);
   return out.length;
 }
@@ -91,7 +92,8 @@ function buildExtension() {
   const tpl = read("src/newtab.template.html");
   const outHtml = tpl
     .replace("<!--STYLE-->", '<link rel="stylesheet" href="style.css" />')
-    .replace("<!--SCRIPT-->", '<script src="newtab.js"></script>');
+    .replace("<!--SCRIPT-->", '<script src="newtab.js"></script>')
+    .replace("<!--VERSION-->", VERSION);
   write("newtab-extension/newtab.html", outHtml);
   write("newtab-extension/style.css", styleCss);
   write("newtab-extension/newtab.js", HOST_EXTENSION + coreJs);

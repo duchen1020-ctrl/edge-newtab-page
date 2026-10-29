@@ -52,6 +52,34 @@ lyric-proxy.js + start-proxy.bat ← 本地代理，供 index.html 解析音乐
 
 新增环境相关能力时，在 `shared/core.js` 里通过 `HOST.parseMedia()` 这类注入点调用，不要写死环境判断。
 
+### 📦 自动生成分享版本
+
+`node build.js` **每次构建都会自动打包**并**自动删除旧包**，产出：
+
+```
+美化主页-新标签页扩展-v<版本>.zip
+├── 美化主页-新标签页扩展-v<版本>/   ← 顶层套一层文件夹，解压不散落
+│   ├── 安装说明.txt
+│   ├── README.md / LICENSE / 版本信息.txt
+│   ├── index.html                    ← 单文件，双击即用
+│   ├── lyric-proxy.js + start-proxy.bat
+│   └── newtab-extension/             ← 扩展版（Chrome/Edge/Firefox）
+```
+
+版本号来自 `shared/VERSION`，改版本号后重新构建即可。
+
+### 常用命令
+
+| 命令 | 作用 |
+|---|---|
+| `node build.js` | 构建 + 自动打包 + 删除旧包 |
+| `node build.js --no-zip` | 只构建，不打包 |
+| `node watch.js` | **监听模式**：改 `shared/` 或 `src/` 下的文件自动重建并打包（约 0.8 秒） |
+| `node install-hook.js` | 安装 git hook，**每次 commit 后自动重建并打包** |
+| `npm run clean` | 删除所有分享包 |
+
+> **git hook 已默认安装**：`node install-hook.js` 会写入 `.git/hooks/post-commit`，提交代码后自动出包，避免发出旧版本。重新 clone 仓库后需要再执行一次。
+
 ## 🚀 使用方式
 
 ### 方式一：直接打开主页
@@ -171,6 +199,34 @@ lyric-proxy.js + start-proxy.bat ← local proxy for index.html music parsing
 - Extension version: music parsing goes through `chrome.runtime.sendMessage({type:'media_parse'})`, handled by `background.js`
 
 When adding environment-specific features, call through an injection point like `HOST.parseMedia()` in `shared/core.js` instead of hard-coding environment checks.
+
+### 📦 Auto-generating a shareable package
+
+`node build.js` **packages on every build** and **removes the previous package**, producing:
+
+```
+美化主页-新标签页扩展-v<version>.zip
+├── 美化主页-新标签页扩展-v<version>/   ← wrapped in a top-level folder
+│   ├── 安装说明.txt
+│   ├── README.md / LICENSE / 版本信息.txt
+│   ├── index.html                    ← single file, double-click to run
+│   ├── lyric-proxy.js + start-proxy.bat
+│   └── newtab-extension/             ← extension build
+```
+
+The version comes from `shared/VERSION`; edit it and rebuild to publish a new one.
+
+### Common commands
+
+| Command | What it does |
+|---|---|
+| `node build.js` | Build + auto-package + delete the old package |
+| `node build.js --no-zip` | Build only, skip packaging |
+| `node watch.js` | **Watch mode**: auto-rebuild and package on changes in `shared/` or `src/` (~0.8s) |
+| `node install-hook.js` | Install a git hook that **rebuilds and packages after every commit** |
+| `npm run clean` | Remove all shareable packages |
+
+> **The git hook is installed by default**: `node install-hook.js` writes `.git/hooks/post-commit`, so committing automatically produces an up-to-date package — you can never accidentally share a stale build. Re-run it after cloning the repo.
 
 ## 🚀 Usage
 

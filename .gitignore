@@ -24,3 +24,7 @@ _backup_*.html
 _backup_*.js
 _probe*.html
 _dist*/
+
+# 构建产物与版本
+package-lock.json
+node_modules/
